@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your meal plan</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<main>
+  <h1>Your week of meals</h1>
+
+  <section class="summary">
+    <p><strong>Estimated total cost:</strong> ${{ "%.2f"|format(plan.total_cost) }}
+       / ${{ "%.0f"|format(plan.weekly_budget) }} budget
+       {% if plan.within_budget %}<span class="ok">(within budget)</span>
+       {% else %}<span class="over">(over budget)</span>{% endif %}</p>
+    <p><strong>Daily macros:</strong>
+       {{ plan.daily_macros.calories }} kcal
+       (target {{ plan.targets.calories }}),
+       {{ plan.daily_macros.protein }}g protein
+       (target {{ plan.targets.protein }}),
+       {{ plan.daily_macros.carbs }}g carbs,
+       {{ plan.daily_macros.fat }}g fat</p>
+    <p class="note">Cost and macros are estimates computed from a fixed ingredient catalog.</p>
+  </section>
+
+  <h2>Meals</h2>
+  {% for meal in plan.meals %}
+    <article class="meal">
+      <h3>{{ meal.name }}</h3>
+      <p class="meta">{{ meal.cook_time_minutes }} min · {{ meal.servings }} servings ·
+         {{ meal.macros.calories }} kcal · {{ meal.macros.protein }}g protein</p>
+      <ul>
+        {% for ing in meal.ingredients %}
+          <li>{{ ing.name }} — {{ ing.grams }} g</li>
+        {% endfor %}
+      </ul>
+      <p>{{ meal.instructions }}</p>
+    </article>
+  {% endfor %}
+
+  <h2>Grocery list</h2>
+  <table>
+    <thead><tr><th>Item</th><th>Amount</th><th>Est. cost</th></tr></thead>
+    <tbody>
+      {% for g in plan.grocery_list %}
+        <tr><td>{{ g.name }}</td><td>{{ g.grams }} g</td><td>${{ "%.2f"|format(g.cost) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <section class="cta">
+    <h2>Want a fresh plan every week?</h2>
+    <form method="post" action="/signup">
+      <label>Drop your email and we'll send new plans
+        <input type="email" name="email" placeholder="you@school.edu" required>
+      </label>
+      <button type="submit">Keep me posted</button>
+    </form>
+  </section>
+
+  <p><a href="/">Start over</a></p>
+</main>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grocery Helper</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<main>
+  <h1>Plan a week of affordable, macro-friendly meals</h1>
+  <form method="post" action="/targets">
+    <label>Weekly budget ($)
+      <input type="number" name="weekly_budget" min="1" step="1" value="40" required>
+    </label>
+
+    <label>Fitness goal
+      <select name="goal">
+        <option value="bulk">Bulk (build muscle)</option>
+        <option value="maintain" selected>Maintain</option>
+        <option value="cut">Cut (lean out)</option>
+      </select>
+    </label>
+
+    <label>Bodyweight (lb)
+      <input type="number" name="bodyweight_lb" min="50" step="1" value="170" required>
+    </label>
+
+    <label>Activity level
+      <select name="activity_level">
+        <option value="sedentary">Sedentary</option>
+        <option value="light" selected>Lightly active</option>
+        <option value="active">Active</option>
+      </select>
+    </label>
+
+    <label>Max cooking time per week (minutes)
+      <input type="number" name="max_cook_minutes" min="15" step="15" value="120" required>
+    </label>
+
+    <label>Dietary pattern
+      <select name="dietary_pattern">
+        <option value="none" selected>No restriction</option>
+        <option value="vegetarian">Vegetarian</option>
+        <option value="vegan">Vegan</option>
+      </select>
+    </label>
+
+    <fieldset>
+      <legend>Avoid allergens</legend>
+      {% for a in allergens %}
+        <label class="inline"><input type="checkbox" name="avoid_allergens" value="{{ a }}"> {{ a }}</label>
+      {% endfor %}
+    </fieldset>
+
+    <label>Ingredients you already own (optional)
+      <select name="owned_ingredient_ids" multiple size="6">
+        {% for i in catalog %}
+          <option value="{{ i.id }}">{{ i.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <button type="submit">Next: review my targets</button>
+  </form>
+</main>
+</body>
+</html>

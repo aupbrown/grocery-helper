@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your targets</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<main>
+  <h1>Your daily targets</h1>
+  <p>We estimated these from your bodyweight and goal. Adjust them if you like.</p>
+  <form method="post" action="/plan">
+    <label>Daily calories
+      <input type="number" name="target_calories" step="10" value="{{ targets.calories }}" required>
+    </label>
+    <label>Daily protein (g)
+      <input type="number" name="target_protein" step="5" value="{{ targets.protein }}" required>
+    </label>
+
+    <!-- carry step-1 inputs forward -->
+    <input type="hidden" name="weekly_budget" value="{{ weekly_budget }}">
+    <input type="hidden" name="goal" value="{{ goal }}">
+    <input type="hidden" name="bodyweight_lb" value="{{ bodyweight_lb }}">
+    <input type="hidden" name="activity_level" value="{{ activity_level }}">
+    <input type="hidden" name="max_cook_minutes" value="{{ max_cook_minutes }}">
+    <input type="hidden" name="dietary_pattern" value="{{ dietary_pattern }}">
+    {% for a in avoid_allergens %}
+      <input type="hidden" name="avoid_allergens" value="{{ a }}">
+    {% endfor %}
+    {% for oid in owned_ingredient_ids %}
+      <input type="hidden" name="owned_ingredient_ids" value="{{ oid }}">
+    {% endfor %}
+
+    <button type="submit">Generate my meal plan</button>
+  </form>
+</main>
+</body>
+</html>

@@ -1,0 +1,19 @@
+body { font-family: system-ui, sans-serif; margin: 0; background: #fafafa; color: #1a1a1a; }
+main { max-width: 640px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 1.5rem; }
+label { display: block; margin: 12px 0; font-weight: 600; }
+label.inline { display: inline-block; margin-right: 12px; font-weight: 400; }
+input, select { display: block; width: 100%; padding: 8px; margin-top: 4px;
+  font-size: 1rem; box-sizing: border-box; }
+label.inline input { display: inline-block; width: auto; }
+fieldset { margin: 12px 0; }
+button { margin-top: 16px; padding: 10px 16px; font-size: 1rem; cursor: pointer;
+  background: #1a1a1a; color: #fff; border: 0; border-radius: 6px; }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; }
+.meal { border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
+.meta { color: #555; font-size: 0.9rem; }
+.summary { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 16px; }
+.note { color: #777; font-size: 0.85rem; }
+.ok { color: #137333; } .over { color: #b00020; }
+.cta { background: #eef6ff; border-radius: 8px; padding: 16px; margin-top: 24px; }

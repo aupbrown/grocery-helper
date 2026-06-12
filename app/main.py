@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,6 +12,9 @@ from app.targets import compute_targets
 from app.generator import generate
 from app.plan import compute_plan
 from app import storage
+
+# Load .env so GEMINI_API_KEY is available to the generator under `uvicorn`.
+load_dotenv()
 
 BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent

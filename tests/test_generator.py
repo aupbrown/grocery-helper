@@ -16,24 +16,27 @@ INPUTS = PlanInputs(weekly_budget=35, goal=Goal.bulk, bodyweight_lb=180,
                     max_cook_minutes=90, target_calories=3050, target_protein=180)
 
 
+# --- Stub mirroring the google-genai client shape: client.models.generate_content(...) ---
+
 class _Resp:
     def __init__(self, parsed):
-        self.parsed_output = parsed
+        self.parsed = parsed
+        self.text = parsed.model_dump_json()
 
 
-class _Messages:
+class _Models:
     def __init__(self, parsed):
         self._parsed = parsed
         self.last_kwargs = None
 
-    def parse(self, **kwargs):
+    def generate_content(self, **kwargs):
         self.last_kwargs = kwargs
         return _Resp(self._parsed)
 
 
 class _Client:
     def __init__(self, parsed):
-        self.messages = _Messages(parsed)
+        self.models = _Models(parsed)
 
 
 def test_system_prompt_lists_ids_and_constrains():
@@ -60,6 +63,6 @@ def test_generate_drops_invalid_ingredient_ids():
     result = generate(INPUTS, CATALOG, client=client)
     ids = [mi.ingredient_id for mi in result.meals[0].ingredients]
     assert ids == ["rice_white"]
-    # confirm we passed our schema + model
-    assert client.messages.last_kwargs["model"] == "claude-opus-4-8"
-    assert client.messages.last_kwargs["output_format"] is GeneratedPlan
+    # confirm we passed our schema + model to Gemini
+    assert client.models.last_kwargs["model"] == "gemini-2.5-flash"
+    assert client.models.last_kwargs["config"]["response_schema"] is GeneratedPlan

@@ -1,8 +1,10 @@
-import anthropic
+from google import genai
 
 from app.models import GeneratedPlan, Ingredient, PlanInputs
 
-MODEL = "claude-opus-4-8"
+# Gemini 2.5 Flash is on Google's free tier — good for cost-free validation testing.
+# Bump this one constant to a newer/larger model later if quality needs it.
+MODEL = "gemini-2.5-flash"
 
 
 def build_system_prompt(catalog: list[Ingredient]) -> str:
@@ -44,21 +46,22 @@ def build_user_prompt(inputs: PlanInputs) -> str:
 
 
 def generate(inputs: PlanInputs, catalog: list[Ingredient], client=None) -> GeneratedPlan:
-    client = client or anthropic.Anthropic()
-    system = [{
-        "type": "text",
-        "text": build_system_prompt(catalog),
-        "cache_control": {"type": "ephemeral"},
-    }]
-    resp = client.messages.parse(
+    # genai.Client() reads the API key from GEMINI_API_KEY (or GOOGLE_API_KEY).
+    client = client or genai.Client()
+    response = client.models.generate_content(
         model=MODEL,
-        max_tokens=8000,
-        thinking={"type": "adaptive"},
-        system=system,
-        messages=[{"role": "user", "content": build_user_prompt(inputs)}],
-        output_format=GeneratedPlan,
+        contents=build_user_prompt(inputs),
+        config={
+            "system_instruction": build_system_prompt(catalog),
+            "response_mime_type": "application/json",
+            "response_schema": GeneratedPlan,
+        },
     )
-    plan = resp.parsed_output
+    # With a Pydantic response_schema, the SDK populates `.parsed`; fall back to
+    # parsing the raw JSON text if it doesn't.
+    plan = response.parsed
+    if plan is None:
+        plan = GeneratedPlan.model_validate_json(response.text)
 
     valid_ids = {i.id for i in catalog}
     for meal in plan.meals:

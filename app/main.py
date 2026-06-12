@@ -16,6 +16,7 @@ BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
 
 CATALOG = load_catalog(ROOT / "data" / "ingredients.json")
+CATALOG_BY_ID = catalog_by_id(CATALOG)
 DB_PATH = ROOT / "events.db"
 storage.init_db(DB_PATH)
 
@@ -84,7 +85,7 @@ def plan(
     )
     filtered = filter_catalog(CATALOG, dietary_pattern, avoid_allergens)
     generated = generate(inputs, filtered)
-    computed = compute_plan(generated, catalog_by_id(CATALOG), inputs)
+    computed = compute_plan(generated, CATALOG_BY_ID, inputs)
     storage.log_event(DB_PATH, "plan_generated")
     return templates.TemplateResponse(
         request, "results.html", {"plan": computed}

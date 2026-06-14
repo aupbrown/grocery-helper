@@ -63,6 +63,7 @@ def test_system_prompt_lists_ids_prices_and_constrains():
     assert "1.10" in sp                  # price is now exposed to the model
     assert "PRIORITY" in sp              # priority-driven constraint
     assert "whey" in sp.lower()          # whey suggested as cheap protein
+    assert "season" in sp.lower()        # flavor guidance present
 
 
 def test_user_prompt_priority_directive():
@@ -104,14 +105,24 @@ def test_budget_priority_returns_cheapest_when_never_under_budget():
     assert result.meals[0].ingredients[0].grams == 800   # cheapest attempt kept
 
 
-def test_protein_priority_retries_until_target_hit():
-    low = _plan("rice_white", 700)         # 2.7g/100g * 7 = 18.9g/wk -> 2.7g/day
-    high = _plan("chicken_breast", 1400)   # 31g/100g * 14 = 434g/wk -> 62g/day
-    client = _Client(low, high)
+def test_protein_priority_retries_when_short():
+    short = _plan("rice_white", 700)         # 18.9g/wk -> 2.7g/day, under the 50 target
+    in_band = _plan("chicken_breast", 1150)  # 356.5g/wk -> 50.9g/day, within [50, 55]
+    client = _Client(short, in_band)
     result = generate(_inputs(budget=1000, target_protein=50), CATALOG,
                       client=client, priority="protein", max_retries=2)
-    assert result.meals[0].ingredients[0].ingredient_id == "chicken_breast"
-    assert client.models.call_count == 2   # retried once, stopped once protein hit
+    assert result.meals[0].ingredients[0].grams == 1150   # in-band plan accepted
+    assert client.models.call_count == 2
+
+
+def test_protein_priority_rejects_overshoot_for_in_band():
+    overshoot = _plan("chicken_breast", 1400)  # 62g/day -> over the 55 ceiling (target*1.10)
+    in_band = _plan("chicken_breast", 1150)    # 50.9g/day -> in band
+    client = _Client(overshoot, in_band)
+    result = generate(_inputs(budget=1000, target_protein=50), CATALOG,
+                      client=client, priority="protein", max_retries=2)
+    assert result.meals[0].ingredients[0].grams == 1150   # overshoot rejected for in-band
+    assert client.models.call_count == 2
 
 
 def test_protein_priority_returns_highest_protein_when_unreachable():
@@ -124,13 +135,13 @@ def test_protein_priority_returns_highest_protein_when_unreachable():
     assert result.meals[0].ingredients[0].grams == 200   # highest-protein attempt kept
 
 
-def test_protein_priority_keeps_cheapest_protein_hitting_plan():
-    # Both hit the 50g/day target but both exceed the $10 budget, so neither is
-    # "ideal" — the generator should keep the cheaper protein-hitting plan.
-    expensive = _plan("chicken_breast", 1400)  # 62g/day, $15.40
-    cheaper = _plan("chicken_breast", 1200)    # 53g/day, $13.20
-    client = _Client(expensive, cheaper)
+def test_protein_priority_keeps_cheapest_in_band_plan():
+    # Both land in the [50, 55] band but both exceed the $10 budget, so neither is
+    # "ideal" — the generator keeps the cheaper in-band plan.
+    pricier = _plan("chicken_breast", 1200)   # 53.1g/day, $13.20
+    cheaper = _plan("chicken_breast", 1150)   # 50.9g/day, $12.65
+    client = _Client(pricier, cheaper)
     result = generate(_inputs(budget=10, target_protein=50), CATALOG,
                       client=client, priority="protein", max_retries=1)
     assert client.models.call_count == 2
-    assert result.meals[0].ingredients[0].grams == 1200   # cheapest protein-hitting kept
+    assert result.meals[0].ingredients[0].grams == 1150   # cheapest in-band kept

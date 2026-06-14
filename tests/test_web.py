@@ -30,10 +30,13 @@ def test_post_plan_renders_results(monkeypatch):
                  MealIngredient(ingredient_id="rice_white", grams=200),
                  MealIngredient(ingredient_id="chicken_breast", grams=150)]),
     ])
+    # Stub the LLM (called twice — budget + protein) and Postgres logging so the
+    # web test stays offline.
     monkeypatch.setattr(
         main, "generate",
         lambda inputs, catalog, client=None, priority="budget", **kw: fake,
     )
+    monkeypatch.setattr(main.storage, "log_event", lambda *a, **k: None)
     r = client.post("/plan", data={
         "weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "180",
         "activity_level": "light", "max_cook_minutes": "120",
@@ -46,7 +49,8 @@ def test_post_plan_renders_results(monkeypatch):
     assert "Hits your protein" in r.text
 
 
-def test_post_signup_thanks():
+def test_post_signup_thanks(monkeypatch):
+    monkeypatch.setattr(main.storage, "log_event", lambda *a, **k: None)
     r = client.post("/signup", data={"email": "student@example.com"})
     assert r.status_code == 200
     assert "Thanks" in r.text

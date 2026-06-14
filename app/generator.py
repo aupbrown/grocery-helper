@@ -10,6 +10,11 @@ MODEL = "gemini-2.5-flash"
 # How many times to re-prompt with real cost/protein feedback before giving up.
 MAX_RETRIES = 2
 
+# Protein-mode accepts protein in [target, target * PROTEIN_CEILING]. Overshooting
+# protein wastes budget on a tight grocery plan, so we treat the target as a band,
+# not a floor, and reinvest the savings into variety and seasoning.
+PROTEIN_CEILING = 1.10
+
 BUDGET = "budget"
 PROTEIN = "protein"
 
@@ -27,15 +32,23 @@ def build_system_prompt(catalog: list[Ingredient]) -> str:
         "Compose a week of meals using ONLY the ingredients in the catalog below, "
         "referencing each by its exact id. Express every quantity in grams. "
         "Produce 3 to 5 distinct meals (meal-prep style) that together cover the week. "
-        "Aim for the daily calorie and protein targets across the week "
-        "(week total ~= 7x the daily target) and respect the per-week cooking-time limit. "
-        "Each ingredient's price per 100g is shown below, so you can plan to a budget. "
-        "The request states a PRIORITY telling you whether budget or protein is the hard "
-        "constraint — honor it. When you need cheap protein, lean on protein-dense, "
-        "low-cost options (whey protein, eggs, beans, lentils, Greek yogurt) and cheap "
-        "calorie staples (rice, oats, potatoes). Maximize variety; avoid repeating the same "
-        "meal. Do not invent ingredients or output any nutrition or price numbers — only "
-        "ids and gram amounts.\n\n"
+        "Hit the daily calorie and protein targets across the week CLOSELY (within about "
+        "10%) — do NOT greatly exceed them; overshooting protein wastes a tight budget. "
+        "When protein is comfortably met, spend any remaining room on variety and flavor, "
+        "not more protein. Use realistic per-serving portions (roughly 150-250g cooked "
+        "protein per serving, sensible grain and vegetable amounts) and respect the "
+        "per-week cooking-time limit. Each ingredient's price per 100g is shown below, so "
+        "you can plan to a budget. The request states a PRIORITY telling you whether budget "
+        "or protein is the hard constraint — honor it. For cheap protein, lean on whey "
+        "protein, eggs, beans, lentils, and Greek yogurt; for cheap calories, on rice, oats, "
+        "and potatoes.\n\n"
+        "MAKE THE FOOD SOUND GOOD: season every meal using the seasoning ingredients "
+        "(salt, black pepper, garlic, onion, soy sauce, hot sauce, mixed herbs, lemon), "
+        "give each meal an appealing, specific name, and write a brief, appetizing "
+        "instruction describing how to cook it and what it tastes like. Avoid bland, "
+        "repetitive plain-ingredient combos.\n\n"
+        "Do not invent ingredients or output any nutrition or price numbers — only ids and "
+        "gram amounts.\n\n"
         "INGREDIENT CATALOG (id: name, macros, price):\n"
         f"{catalog_block}"
     )
@@ -46,9 +59,10 @@ def build_user_prompt(inputs: PlanInputs, priority: str = BUDGET) -> str:
     avoid = ", ".join(inputs.avoid_allergens) or "none"
     if priority == PROTEIN:
         directive = (
-            "PRIORITY: hit the daily protein target. Spend as little as possible while "
-            "meeting it — it is OK to go slightly over the weekly budget if that is the only "
-            "way to reach the protein target, but stay as close to the budget as you can."
+            "PRIORITY: hit the daily protein target as closely as possible without large "
+            "overshoot (aim for the target, not far above it). Spend as little as possible "
+            "while meeting it — it is OK to go slightly over the weekly budget if necessary, "
+            "but stay as close to the budget as you can."
         )
     else:
         directive = (
@@ -87,11 +101,20 @@ def _protein_short_feedback(inputs: PlanInputs, protein: float) -> str:
     )
 
 
+def _too_much_protein_feedback(inputs: PlanInputs, protein: float) -> str:
+    return (
+        f"\n\nYour previous plan provided {protein:.0f}g protein/day, overshooting the "
+        f"{inputs.target_protein}g target by {protein - inputs.target_protein:.0f}g — that "
+        "wastes money on a budget. Dial protein down toward the target and spend the freed "
+        "budget on more variety and seasoning instead."
+    )
+
+
 def _trim_cost_feedback(inputs: PlanInputs, cost: float, protein: float) -> str:
     return (
         f"\n\nYour previous plan hit protein ({protein:.0f}g/day) but cost ${cost:.2f} — "
         f"${cost - inputs.weekly_budget:.2f} over the ${inputs.weekly_budget} budget. "
-        f"Bring the cost down toward the budget while keeping protein at or above "
+        f"Bring the cost down toward the budget while keeping protein near "
         f"{inputs.target_protein}g/day: swap pricey items for cheaper protein (whey, eggs, "
         "beans, lentils) and trim portions of expensive ingredients."
     )
@@ -125,13 +148,14 @@ def generate(
     """Generate a weekly plan from the catalog.
 
     priority="budget":  budget is the hard cap; protein may fall short.
-    priority="protein": hit the protein target, then minimize cost (may run over budget).
+    priority="protein": land protein inside [target, target*PROTEIN_CEILING] at the lowest
+                        cost (may run slightly over budget); do not overshoot protein.
 
-    A ground-truth retry loop checks the real cost/protein after each attempt and
-    re-prompts with the exact gap. Plans are ranked so the best attempt is kept:
+    A ground-truth retry loop checks the real cost/protein after each attempt and re-prompts
+    with the exact gap, keeping the best attempt:
       - budget mode: any plan under budget wins; otherwise the cheapest.
-      - protein mode: protein-hitting plans win, ranked by lowest cost; if none hit,
-        the highest-protein attempt is kept.
+      - protein mode: in-band plans win (ranked by lowest cost); else the closest to the
+        band — overshoots ranked by lowest protein, shortfalls by highest protein.
     """
     # genai.Client() reads the API key from GEMINI_API_KEY (or GOOGLE_API_KEY).
     client = client or genai.Client()
@@ -151,13 +175,17 @@ def generate(
         cost = weekly_grocery_cost(plan, by_id, inputs.owned_ingredient_ids)
         protein = daily_protein_grams(plan, by_id)
         under_budget = cost <= inputs.weekly_budget
-        hits_protein = protein >= inputs.target_protein
 
         if priority == PROTEIN:
-            # Tier 0 = hits protein (ranked by lowest cost); tier 1 = misses (ranked
-            # by highest protein). Lower tuple is better.
-            score = (0, cost) if hits_protein else (1, -protein)
-            ideal = hits_protein and under_budget
+            target = inputs.target_protein
+            in_band = target <= protein <= target * PROTEIN_CEILING
+            if in_band:
+                score = (0, cost)        # in band: minimize cost
+            elif protein > target:
+                score = (1, protein)     # overshoot: prefer lower (closer to band)
+            else:
+                score = (2, -protein)    # shortfall: prefer higher (closer to target)
+            ideal = in_band and under_budget
         else:
             score = (0, cost) if under_budget else (1, cost)
             ideal = under_budget
@@ -168,12 +196,15 @@ def generate(
             return plan
 
         if priority == PROTEIN:
-            user_prompt = build_user_prompt(inputs, priority) + (
-                _protein_short_feedback(inputs, protein) if not hits_protein
-                else _trim_cost_feedback(inputs, cost, protein)
-            )
+            if protein < inputs.target_protein:
+                fb = _protein_short_feedback(inputs, protein)
+            elif protein > inputs.target_protein * PROTEIN_CEILING:
+                fb = _too_much_protein_feedback(inputs, protein)
+            else:  # in band but over budget
+                fb = _trim_cost_feedback(inputs, cost, protein)
         else:
-            user_prompt = build_user_prompt(inputs, priority) + _over_budget_feedback(inputs, cost)
+            fb = _over_budget_feedback(inputs, cost)
+        user_prompt = build_user_prompt(inputs, priority) + fb
 
     # Target never perfectly met — return the best attempt; the results page honestly
     # reports cost-vs-budget and protein-vs-target either way.

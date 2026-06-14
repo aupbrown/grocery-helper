@@ -10,7 +10,7 @@
 <main>
   <h1>Your daily targets</h1>
   <p>We estimated these from your bodyweight and goal. Adjust them if you like.</p>
-  <form method="post" action="/plan">
+  <form method="post" action="/plan" id="planform">
     <label>Daily calories
       <input type="number" name="target_calories" step="10" value="{{ targets.calories }}" required>
     </label>
@@ -32,8 +32,21 @@
       <input type="hidden" name="owned_ingredient_ids" value="{{ oid }}">
     {% endfor %}
 
-    <button type="submit">Generate my meal plan</button>
+    <button type="submit" id="generate-btn">Generate my meal plan</button>
   </form>
+
+  <div id="working" hidden>
+    <div class="spinner"></div>
+    <p>Generating your two meal plans… this can take up to ~30 seconds. Hang tight!</p>
+  </div>
+
+  <script>
+    document.getElementById("planform").addEventListener("submit", function () {
+      document.getElementById("generate-btn").disabled = true;
+      document.getElementById("planform").hidden = true;
+      document.getElementById("working").hidden = false;
+    });
+  </script>
 </main>
 </body>
 </html>

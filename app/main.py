@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -13,7 +14,7 @@ from app.generator import generate
 from app.plan import compute_plan
 from app import storage
 
-# Load .env so GEMINI_API_KEY is available to the generator under `uvicorn`.
+# Load .env so GEMINI_API_KEY and DATABASE_URL are available under `uvicorn`.
 load_dotenv()
 
 BASE = Path(__file__).resolve().parent
@@ -21,12 +22,19 @@ ROOT = BASE.parent
 
 CATALOG = load_catalog(ROOT / "data" / "ingredients.json")
 CATALOG_BY_ID = catalog_by_id(CATALOG)
-DB_PATH = ROOT / "events.db"
-storage.init_db(DB_PATH)
 
 ALLERGENS = ["dairy", "eggs", "fish", "nuts", "soy", "gluten", "shellfish"]
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create the events table on startup. This runs when the app actually serves,
+    # not on bare import, so the offline test suite needs no database.
+    storage.init_db()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
@@ -90,7 +98,7 @@ def plan(
     filtered = filter_catalog(CATALOG, dietary_pattern, avoid_allergens)
     budget_plan = compute_plan(generate(inputs, filtered, priority="budget"), CATALOG_BY_ID, inputs)
     protein_plan = compute_plan(generate(inputs, filtered, priority="protein"), CATALOG_BY_ID, inputs)
-    storage.log_event(DB_PATH, "plan_generated")
+    storage.log_event("plan_generated")
     return templates.TemplateResponse(request, "results.html", {
         "plans": [
             {"label": "Plan A — Fits your budget",
@@ -105,10 +113,10 @@ def plan(
 
 @app.post("/signup", response_class=HTMLResponse)
 def signup(request: Request, email: str = Form(...)):
-    storage.log_event(DB_PATH, "email_captured", email=email)
+    storage.log_event("email_captured", email=email)
     return templates.TemplateResponse(request, "thanks.html", {})
 
 
 @app.get("/stats")
 def stats():
-    return storage.get_stats(DB_PATH)
+    return storage.get_stats()

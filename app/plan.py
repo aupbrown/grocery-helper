@@ -42,6 +42,16 @@ def weekly_grocery_cost(
     return round(total, 2)
 
 
+def daily_protein_grams(generated: GeneratedPlan, by_id: dict[str, Ingredient]) -> float:
+    """Average daily protein for the plan (weekly total / 7).
+
+    Used by the generator to decide protein-priority retries, matching how the
+    results page reports daily protein.
+    """
+    total = sum(macros_for_meal(meal, by_id).protein for meal in generated.meals)
+    return round(total / DAYS, 1)
+
+
 def compute_plan(
     generated: GeneratedPlan,
     by_id: dict[str, Ingredient],

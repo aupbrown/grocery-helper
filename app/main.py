@@ -88,12 +88,19 @@ def plan(
         target_calories=target_calories, target_protein=target_protein,
     )
     filtered = filter_catalog(CATALOG, dietary_pattern, avoid_allergens)
-    generated = generate(inputs, filtered)
-    computed = compute_plan(generated, CATALOG_BY_ID, inputs)
+    budget_plan = compute_plan(generate(inputs, filtered, priority="budget"), CATALOG_BY_ID, inputs)
+    protein_plan = compute_plan(generate(inputs, filtered, priority="protein"), CATALOG_BY_ID, inputs)
     storage.log_event(DB_PATH, "plan_generated")
-    return templates.TemplateResponse(
-        request, "results.html", {"plan": computed}
-    )
+    return templates.TemplateResponse(request, "results.html", {
+        "plans": [
+            {"label": "Plan A — Fits your budget",
+             "blurb": "Cheapest plan under your budget. Protein may fall short of target.",
+             "data": budget_plan},
+            {"label": "Plan B — Hits your protein",
+             "blurb": "Reaches your protein target at the lowest cost. May run just over budget.",
+             "data": protein_plan},
+        ],
+    })
 
 
 @app.post("/signup", response_class=HTMLResponse)

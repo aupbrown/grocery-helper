@@ -2,7 +2,7 @@ from app.models import (
     Goal, Ingredient, Meal, MealIngredient, GeneratedPlan, PlanInputs,
 )
 from app.catalog import catalog_by_id
-from app.plan import macros_for_meal, compute_plan, weekly_grocery_cost
+from app.plan import macros_for_meal, compute_plan, weekly_grocery_cost, daily_protein_grams
 
 RICE = Ingredient(id="rice_white", name="White rice", category="grain",
                   tags=["vegan"], allergens=[], kcal_per_100g=130,
@@ -37,6 +37,11 @@ def test_weekly_grocery_cost():
     plan = GeneratedPlan(meals=[MEAL])
     assert weekly_grocery_cost(plan, BY_ID) == 1.85               # rice 0.20 + chicken 1.65
     assert weekly_grocery_cost(plan, BY_ID, owned_ids=["rice_white"]) == 1.65
+
+
+def test_daily_protein_grams():
+    plan = GeneratedPlan(meals=[MEAL])
+    assert daily_protein_grams(plan, BY_ID) == 7.4   # 51.9g protein / 7 days
 
 
 def test_compute_plan_cost_and_daily_macros():

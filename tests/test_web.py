@@ -30,7 +30,10 @@ def test_post_plan_renders_results(monkeypatch):
                  MealIngredient(ingredient_id="rice_white", grams=200),
                  MealIngredient(ingredient_id="chicken_breast", grams=150)]),
     ])
-    monkeypatch.setattr(main, "generate", lambda inputs, catalog, client=None: fake)
+    monkeypatch.setattr(
+        main, "generate",
+        lambda inputs, catalog, client=None, priority="budget", **kw: fake,
+    )
     r = client.post("/plan", data={
         "weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "180",
         "activity_level": "light", "max_cook_minutes": "120",
@@ -39,6 +42,8 @@ def test_post_plan_renders_results(monkeypatch):
     assert r.status_code == 200
     assert "Chicken &amp; rice" in r.text or "Chicken & rice" in r.text
     assert "Grocery list" in r.text
+    assert "Fits your budget" in r.text   # both plans rendered
+    assert "Hits your protein" in r.text
 
 
 def test_post_signup_thanks():

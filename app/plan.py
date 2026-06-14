@@ -19,6 +19,29 @@ def macros_for_meal(meal: Meal, by_id: dict[str, Ingredient]) -> Macros:
                   carbs=round(carb, 1), fat=round(fat, 1))
 
 
+def weekly_grocery_cost(
+    generated: GeneratedPlan,
+    by_id: dict[str, Ingredient],
+    owned_ids=(),
+) -> float:
+    """Total grocery cost of the plan (owned ingredients excluded).
+
+    Single source of truth for cost — used both to render the plan and to
+    decide budget retries in the generator, so the two never disagree.
+    """
+    owned = set(owned_ids)
+    grams_by_ing: dict[str, float] = {}
+    for meal in generated.meals:
+        for mi in meal.ingredients:
+            grams_by_ing[mi.ingredient_id] = grams_by_ing.get(mi.ingredient_id, 0.0) + mi.grams
+    total = 0.0
+    for ing_id, grams in grams_by_ing.items():
+        if ing_id in owned:
+            continue
+        total += round(grams / 100.0 * by_id[ing_id].price_per_100g, 2)
+    return round(total, 2)
+
+
 def compute_plan(
     generated: GeneratedPlan,
     by_id: dict[str, Ingredient],
@@ -51,16 +74,14 @@ def compute_plan(
             grams_by_ing[mi.ingredient_id] = grams_by_ing.get(mi.ingredient_id, 0.0) + mi.grams
 
     grocery_list: list[GroceryItem] = []
-    total_cost = 0.0
     for ing_id, grams in grams_by_ing.items():
         if ing_id in owned:
             continue
         ing = by_id[ing_id]
         cost = round(grams / 100.0 * ing.price_per_100g, 2)
-        total_cost += cost
         grocery_list.append(GroceryItem(ingredient_id=ing_id, name=ing.name,
                                         grams=round(grams, 1), cost=cost))
-    total_cost = round(total_cost, 2)
+    total_cost = weekly_grocery_cost(generated, by_id, inputs.owned_ingredient_ids)
 
     daily = Macros(
         calories=round(total.calories / DAYS, 1),

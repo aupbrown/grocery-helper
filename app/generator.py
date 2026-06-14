@@ -3,9 +3,11 @@ from google import genai
 from app.models import GeneratedPlan, Ingredient, PlanInputs
 from app.plan import weekly_grocery_cost, daily_protein_grams
 
-# Gemini 2.5 Flash is on Google's free tier — good for cost-free validation testing.
-# Bump this one constant to a newer/larger model later if quality needs it.
-MODEL = "gemini-2.5-flash"
+# Free-tier model. Flash-Lite has high daily request limits, so we use it to iterate on
+# non-quality features without burning the ~20 RPD cap on more capable free models.
+# For a meal-QUALITY run, bump this one constant (e.g. "gemini-3-flash-preview") and the
+# matching assertion in tests/test_generator.py.
+MODEL = "gemini-3.1-flash-lite"
 
 # How many times to re-prompt with real cost/protein feedback before giving up.
 MAX_RETRIES = 2

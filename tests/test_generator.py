@@ -83,7 +83,7 @@ def test_generate_drops_invalid_ingredient_ids():
     result = generate(INPUTS, CATALOG, client=client)
     ids = [mi.ingredient_id for mi in result.meals[0].ingredients]
     assert ids == ["rice_white"]
-    assert client.models.last_kwargs["model"] == "gemini-2.5-flash"
+    assert client.models.last_kwargs["model"] == "gemini-3.1-flash-lite"
     assert client.models.last_kwargs["config"]["response_schema"] is GeneratedPlan
 
 

@@ -77,7 +77,9 @@ class PlanInputs(BaseModel):
 
 class MealIngredientView(BaseModel):
     name: str
-    grams: float
+    grams: float                       # whole-recipe total (all servings)
+    grams_per_serving: float
+    macros_per_serving: Macros
 
 
 class MealView(BaseModel):
@@ -86,7 +88,7 @@ class MealView(BaseModel):
     cook_time_minutes: int
     servings: int
     instructions: str
-    macros: Macros
+    macros_per_serving: Macros
 
 
 class GroceryItem(BaseModel):
@@ -111,3 +113,6 @@ class ComputedPlan(BaseModel):
     within_budget: bool
     daily_macros: Macros
     targets: Targets
+    protein_met: bool                  # daily protein >= the goal's floor
+    calories_met: bool                 # daily calories within the goal's band
+    target_note: str = ""              # short human-readable gap summary ("" if on target)

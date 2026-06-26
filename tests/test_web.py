@@ -47,6 +47,12 @@ def test_post_plan_renders_results(monkeypatch):
     assert "This week&#39;s groceries" in r.text or "This week's groceries" in r.text
     assert "Fits your budget" in r.text   # both plans rendered
     assert "Hits your protein" in r.text
+    assert "Per serving:" in r.text       # per-serving meal total labeled
+    assert "g/serving" in r.text          # per-ingredient per-serving amounts
+    assert "Protein target:" in r.text    # met/not-met reporting
+    assert "Calorie target:" in r.text
+    assert "not met" in r.text            # the stub plan is far below 2700/180
+    assert "Whey protein shake" in r.text  # correction pass tops up protein
 
 
 def test_post_signup_thanks(monkeypatch):

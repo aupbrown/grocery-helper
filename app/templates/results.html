@@ -29,16 +29,28 @@
          {{ p.data.daily_macros.calories }} kcal (target {{ p.data.targets.calories }}),
          {{ p.data.daily_macros.protein }}g protein (target {{ p.data.targets.protein }}),
          {{ p.data.daily_macros.carbs }}g carbs, {{ p.data.daily_macros.fat }}g fat</p>
+      <p class="targetstatus">
+         Protein target: {% if p.data.protein_met %}<span class="ok">met</span>{% else %}<span class="over">not met</span>{% endif %} ·
+         Calorie target: {% if p.data.calories_met %}<span class="ok">met</span>{% else %}<span class="over">not met</span>{% endif %}
+         {% if p.data.target_note %}<span class="note">— {{ p.data.target_note }}</span>{% endif %}</p>
     </section>
 
     {% for meal in p.data.meals %}
       <article class="meal">
         <h3>{{ meal.name }}</h3>
-        <p class="meta">{{ meal.cook_time_minutes }} min · {{ meal.servings }} servings ·
-           {{ meal.macros.calories }} kcal · {{ meal.macros.protein }}g protein</p>
+        <p class="meta">{{ meal.cook_time_minutes }} min · {{ meal.servings }} servings</p>
+        <p class="per-serving"><strong>Per serving:</strong>
+           {{ meal.macros_per_serving.calories }} kcal ·
+           {{ meal.macros_per_serving.protein }}g protein ·
+           {{ meal.macros_per_serving.carbs }}g carbs ·
+           {{ meal.macros_per_serving.fat }}g fat</p>
         <ul>
           {% for ing in meal.ingredients %}
-            <li>{{ ing.name }} — {{ ing.grams }} g</li>
+            <li>{{ ing.name }} — {{ ing.grams_per_serving }} g/serving ({{ ing.grams }} g total)
+                <span class="note">· {{ ing.macros_per_serving.calories }} kcal ·
+                {{ ing.macros_per_serving.protein }}g protein ·
+                {{ ing.macros_per_serving.carbs }}g carbs ·
+                {{ ing.macros_per_serving.fat }}g fat per serving</span></li>
           {% endfor %}
         </ul>
         <p>{{ meal.instructions }}</p>

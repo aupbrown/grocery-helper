@@ -11,7 +11,7 @@ from app.models import PlanInputs, Goal
 from app.catalog import load_catalog, catalog_by_id, filter_catalog
 from app.targets import compute_targets
 from app.generator import generate
-from app.plan import compute_plan
+from app.plan import compute_plan, adjust_to_targets
 from app import storage
 
 # Load .env so GEMINI_API_KEY and DATABASE_URL are available under `uvicorn`.
@@ -96,8 +96,20 @@ def plan(
         target_calories=target_calories, target_protein=target_protein,
     )
     filtered = filter_catalog(CATALOG, dietary_pattern, avoid_allergens)
-    budget_plan = compute_plan(generate(inputs, filtered, priority="budget"), CATALOG_BY_ID, inputs)
-    protein_plan = compute_plan(generate(inputs, filtered, priority="protein"), CATALOG_BY_ID, inputs)
+    # Use the filtered catalog for correction too, so the whey top-up is only used when the
+    # user's diet/allergens allow it (e.g. no whey for vegan or dairy-allergic plans).
+    filtered_by_id = catalog_by_id(filtered)
+
+    # Plan A is budget-first (corrections capped by the budget); Plan B is target-first
+    # (uncapped — guarantees the protein floor, may run over budget). See the two-plan design.
+    budget_gen = adjust_to_targets(
+        generate(inputs, filtered, priority="budget"), filtered_by_id, inputs,
+        budget_cap=inputs.weekly_budget)
+    protein_gen = adjust_to_targets(
+        generate(inputs, filtered, priority="protein"), filtered_by_id, inputs,
+        budget_cap=None)
+    budget_plan = compute_plan(budget_gen, filtered_by_id, inputs)
+    protein_plan = compute_plan(protein_gen, filtered_by_id, inputs)
     storage.log_event("plan_generated")
     return templates.TemplateResponse(request, "results.html", {
         "plans": [

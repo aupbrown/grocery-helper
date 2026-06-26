@@ -1,7 +1,7 @@
 from google import genai
 
 from app.models import GeneratedPlan, Ingredient, PlanInputs
-from app.plan import weekly_grocery_cost, daily_protein_grams
+from app.plan import weekly_grocery_cost, daily_protein_grams, daily_calories
 
 # Free-tier model. Flash-Lite has high daily request limits, so we use it to iterate on
 # non-quality features without burning the ~20 RPD cap on more capable free models.
@@ -81,6 +81,9 @@ def build_user_prompt(inputs: PlanInputs, priority: str = BUDGET) -> str:
         f"Goal: {inputs.goal.value}\n"
         f"Daily calorie target: {inputs.target_calories} kcal\n"
         f"Daily protein target: {inputs.target_protein} g\n"
+        f"The plan is ALL the food for the 7-day week, so every meal and serving together "
+        f"should total about {inputs.target_calories * 7:.0f} kcal and "
+        f"{inputs.target_protein * 7:.0f} g protein for the week.\n"
         f"Weekly grocery budget: ${inputs.weekly_budget}\n"
         f"Max total cooking time for the week: {inputs.max_cook_minutes} minutes\n"
         f"Dietary pattern: {inputs.dietary_pattern}\n"
@@ -125,6 +128,23 @@ def _trim_cost_feedback(inputs: PlanInputs, cost: float, protein: float) -> str:
         f"Bring the cost down toward the budget while keeping protein near "
         f"{inputs.target_protein}g/day: swap pricey items for cheaper protein (whey, eggs, "
         "beans, lentils) and trim portions of expensive ingredients."
+    )
+
+
+def _macro_status_feedback(inputs: PlanInputs, cal: float, protein: float) -> str:
+    """Report the measured daily calories/protein so the retry can correct both."""
+    return (
+        f"\n\nMeasured: about {cal:.0f} kcal/day and {protein:.0f}g protein/day "
+        f"(targets: {inputs.target_calories} kcal, {inputs.target_protein}g). "
+        "Adjust portions to move both toward target."
+    )
+
+
+def _dropped_feedback(dropped_ids: list[str]) -> str:
+    ids = ", ".join(sorted(set(dropped_ids)))
+    return (
+        f"\n\nThese ingredient ids are not in the catalog and were removed: {ids}. "
+        "Replace them with valid catalog ids so that protein and calories are not lost."
     )
 
 
@@ -177,11 +197,15 @@ def generate(
     for _ in range(max_retries + 1):
         plan = _ask(client, catalog, user_prompt)
         # The model only supplies ids + grams; drop anything not in the catalog.
+        dropped_ids: list[str] = []
         for meal in plan.meals:
+            dropped_ids += [mi.ingredient_id for mi in meal.ingredients
+                            if mi.ingredient_id not in valid_ids]
             meal.ingredients = [mi for mi in meal.ingredients if mi.ingredient_id in valid_ids]
 
         cost = weekly_grocery_cost(plan, by_id, inputs.owned_ingredient_ids)
         protein = daily_protein_grams(plan, by_id)
+        calories = daily_calories(plan, by_id)
         under_budget = cost <= inputs.weekly_budget
 
         if priority == PROTEIN:
@@ -212,6 +236,9 @@ def generate(
                 fb = _trim_cost_feedback(inputs, cost, protein)
         else:
             fb = _over_budget_feedback(inputs, cost)
+        fb += _macro_status_feedback(inputs, calories, protein)
+        if dropped_ids:
+            fb += _dropped_feedback(dropped_ids)
         user_prompt = build_user_prompt(inputs, priority) + fb
 
     # Target never perfectly met — return the best attempt; the results page honestly

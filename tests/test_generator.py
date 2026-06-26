@@ -75,6 +75,26 @@ def test_user_prompt_priority_directive():
     assert "hit the daily protein target" in build_user_prompt(INPUTS, "protein")
 
 
+def test_user_prompt_states_weekly_totals():
+    # Anchors the per-serving vs per-day ambiguity: the plan is the whole week's food.
+    p = build_user_prompt(INPUTS)
+    assert "21350" in p   # 3050 kcal * 7 days
+    assert "1260" in p    # 180 g protein * 7 days
+
+
+def test_generate_feeds_back_dropped_ids():
+    bad = GeneratedPlan(meals=[
+        Meal(name="Bowl", cook_time_minutes=20, servings=2, instructions="...",
+             ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=1000),
+                          MealIngredient(ingredient_id="not_in_catalog", grams=100)]),
+    ])
+    good = _plan("rice_white", 100)   # cheap, lands under the $5 budget -> stops the loop
+    client = _Client(bad, good)
+    generate(_inputs(budget=5), CATALOG, client=client, priority="budget", max_retries=2)
+    # The retry prompt names the dropped id so the model can replace it.
+    assert "not_in_catalog" in client.models.last_kwargs["contents"]
+
+
 def test_generate_drops_invalid_ingredient_ids():
     parsed = GeneratedPlan(meals=[
         Meal(name="Bowl", cook_time_minutes=20, servings=2, instructions="...",

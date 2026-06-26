@@ -44,7 +44,7 @@ def test_post_plan_renders_results(monkeypatch):
     })
     assert r.status_code == 200
     assert "Chicken &amp; rice" in r.text or "Chicken & rice" in r.text
-    assert "Grocery list" in r.text
+    assert "This week&#39;s groceries" in r.text or "This week's groceries" in r.text
     assert "Fits your budget" in r.text   # both plans rendered
     assert "Hits your protein" in r.text
 

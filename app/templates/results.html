@@ -17,10 +17,14 @@
     <p class="blurb">{{ p.blurb }}</p>
 
     <section class="summary">
-      <p><strong>Estimated total cost:</strong> ${{ "%.2f"|format(p.data.total_cost) }}
+      <p><strong>This week's groceries:</strong> ${{ "%.2f"|format(p.data.total_cost) }}
          / ${{ "%.0f"|format(p.data.weekly_budget) }} budget
          {% if p.data.within_budget %}<span class="ok">(within budget)</span>
          {% else %}<span class="over">(over budget)</span>{% endif %}</p>
+      {% if p.data.pantry_total > 0 %}
+      <p><strong>One-time pantry stock-up:</strong> ${{ "%.2f"|format(p.data.pantry_total) }}
+         <span class="note">— seasonings &amp; oil that last for months, not counted in the weekly budget</span></p>
+      {% endif %}
       <p><strong>Daily macros:</strong>
          {{ p.data.daily_macros.calories }} kcal (target {{ p.data.targets.calories }}),
          {{ p.data.daily_macros.protein }}g protein (target {{ p.data.targets.protein }}),
@@ -41,15 +45,32 @@
       </article>
     {% endfor %}
 
-    <h4>Grocery list</h4>
+    <h4>This week's groceries</h4>
     <table>
-      <thead><tr><th>Item</th><th>Amount</th><th>Est. cost</th></tr></thead>
+      <thead><tr><th>Item</th><th>Buy</th><th>Uses</th><th>Cost</th></tr></thead>
       <tbody>
         {% for g in p.data.grocery_list %}
-          <tr><td>{{ g.name }}</td><td>{{ g.grams }} g</td><td>${{ "%.2f"|format(g.cost) }}</td></tr>
+          <tr><td>{{ g.name }}</td><td>{{ g.packages }} × {{ g.package_label }}</td>
+              <td>{{ g.grams }} g</td><td>${{ "%.2f"|format(g.cost) }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
+
+    {% if p.data.pantry_list %}
+    <h4>Pantry staples — one-time stock-up (lasts months)</h4>
+    <p class="note">Bought once and reused for months. The per-meal cost shows how little each
+       actually adds to a meal — think of it as an investment, not a weekly expense.</p>
+    <table>
+      <thead><tr><th>Item</th><th>Buy</th><th>≈ per meal</th><th>Package price</th></tr></thead>
+      <tbody>
+        {% for g in p.data.pantry_list %}
+          <tr><td>{{ g.name }}</td><td>{{ g.packages }} × {{ g.package_label }}</td>
+              <td>≈ ${{ "%.2f"|format(g.per_meal_cost) }}</td>
+              <td>${{ "%.2f"|format(g.cost) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
   </section>
   {% endfor %}
 

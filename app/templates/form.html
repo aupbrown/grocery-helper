@@ -8,7 +8,7 @@
 </head>
 <body>
 <main>
-  <h1>Plan a week of affordable, macro-friendly meals</h1>
+  <h1>Plan a week of affordable, macro-friendly, time saving meals</h1>
   <form method="post" action="/targets">
     <label>Weekly budget ($)
       <input type="number" name="weekly_budget" min="1" step="1" value="40" required>
@@ -55,11 +55,19 @@
 
     <label>Ingredients you already own (optional)
       <select name="owned_ingredient_ids" multiple size="6">
-        {% for i in catalog %}
+        {% for i in catalog %}{% if not i.pantry_staple %}
           <option value="{{ i.id }}">{{ i.name }}</option>
-        {% endfor %}
+        {% endif %}{% endfor %}
       </select>
     </label>
+
+    <fieldset>
+      <legend>Seasonings &amp; pantry staples you already have</legend>
+      <p class="note">Check what's already in your kitchen — we won't add it to your stock-up cost.</p>
+      {% for i in catalog %}{% if i.pantry_staple %}
+        <label class="inline"><input type="checkbox" name="owned_ingredient_ids" value="{{ i.id }}"> {{ i.name }}</label>
+      {% endif %}{% endfor %}
+    </fieldset>
 
     <button type="submit">Next: review my targets</button>
   </form>

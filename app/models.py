@@ -25,7 +25,15 @@ class Ingredient(BaseModel):
     protein_per_100g: float
     carbs_per_100g: float
     fat_per_100g: float
-    price_per_100g: float
+    package_price: float          # Walmart price of one package
+    package_size_g: float         # grams per package, same cooked/dry basis as the macros
+    package_label: str            # e.g. "16 oz jar", "dozen", "2 lb dry bag"
+    pantry_staple: bool = False   # seasonings + oil: last months, tiny per-meal use
+
+    @property
+    def price_per_100g(self) -> float:
+        """Marginal price per 100g, derived from the package so price has one source."""
+        return self.package_price / self.package_size_g * 100
 
 
 class MealIngredient(BaseModel):
@@ -84,14 +92,21 @@ class MealView(BaseModel):
 class GroceryItem(BaseModel):
     ingredient_id: str
     name: str
-    grams: float
-    cost: float
+    grams: float                  # amount the week's recipes use
+    packages: int                 # whole packages to buy (rounded up)
+    package_label: str
+    package_price: float
+    cost: float                   # packages * package_price
+    pantry_staple: bool
+    per_meal_cost: float | None = None  # amortized cost/meal for pantry items
 
 
 class ComputedPlan(BaseModel):
     meals: list[MealView]
-    grocery_list: list[GroceryItem]
-    total_cost: float
+    grocery_list: list[GroceryItem]    # this week's groceries (counts toward budget)
+    pantry_list: list[GroceryItem]     # one-time pantry staples (excluded from budget)
+    total_cost: float                  # weekly groceries only
+    pantry_total: float                # one-time pantry stock-up cost
     weekly_budget: float
     within_budget: bool
     daily_macros: Macros

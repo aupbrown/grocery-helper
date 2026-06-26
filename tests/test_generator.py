@@ -3,13 +3,15 @@ from app.models import (
 )
 from app.generator import build_system_prompt, build_user_prompt, generate
 
+# 50g packages priced at half the old per-100g, so whole-package cost equals the old
+# per-gram cost for these (50g-multiple) test amounts — keeping the cost math readable.
 CATALOG = [
     Ingredient(id="rice_white", name="White rice", category="grain", tags=["vegan"],
                allergens=[], kcal_per_100g=130, protein_per_100g=2.7, carbs_per_100g=28,
-               fat_per_100g=0.3, price_per_100g=0.10),
+               fat_per_100g=0.3, package_price=0.05, package_size_g=50, package_label="50g"),
     Ingredient(id="chicken_breast", name="Chicken breast", category="protein", tags=[],
                allergens=[], kcal_per_100g=165, protein_per_100g=31, carbs_per_100g=0,
-               fat_per_100g=3.6, price_per_100g=1.10),
+               fat_per_100g=3.6, package_price=0.55, package_size_g=50, package_label="50g"),
 ]
 
 INPUTS = PlanInputs(weekly_budget=35, goal=Goal.bulk, bodyweight_lb=180,

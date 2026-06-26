@@ -24,8 +24,9 @@ PROTEIN = "protein"
 def build_system_prompt(catalog: list[Ingredient]) -> str:
     lines = [
         f"- {i.id}: {i.name} ({i.category}; "
-        f"{i.kcal_per_100g} kcal, {i.protein_per_100g}g protein, "
-        f"${i.price_per_100g:.2f} per 100g)"
+        f"{i.kcal_per_100g} kcal, {i.protein_per_100g}g protein; "
+        f"sold as {i.package_label} for ${i.package_price:.2f} ≈ ${i.price_per_100g:.2f}/100g"
+        f"{'; PANTRY STAPLE' if i.pantry_staple else ''})"
         for i in catalog
     ]
     catalog_block = "\n".join(lines)
@@ -39,11 +40,16 @@ def build_system_prompt(catalog: list[Ingredient]) -> str:
         "When protein is comfortably met, spend any remaining room on variety and flavor, "
         "not more protein. Use realistic per-serving portions (roughly 150-250g cooked "
         "protein per serving, sensible grain and vegetable amounts) and respect the "
-        "per-week cooking-time limit. Each ingredient's price per 100g is shown below, so "
-        "you can plan to a budget. The request states a PRIORITY telling you whether budget "
-        "or protein is the hard constraint — honor it. For cheap protein, lean on whey "
-        "protein, eggs, beans, lentils, and Greek yogurt; for cheap calories, on rice, oats, "
-        "and potatoes.\n\n"
+        "per-week cooking-time limit. The request states a PRIORITY telling you whether "
+        "budget or protein is the hard constraint — honor it. For cheap protein, lean on "
+        "whey protein, eggs, beans, lentils, and Greek yogurt; for cheap calories, on rice, "
+        "oats, and potatoes.\n\n"
+        "HOW PRICING WORKS: every ingredient is sold ONLY as a whole package (shown below), "
+        "so buying any amount costs at least one full package — using 30g of peanut butter "
+        "still costs a whole jar. So prefer fewer distinct pricey packages and reuse what "
+        "you introduce across several meals rather than buying many items for a single dab. "
+        "Items marked PANTRY STAPLE (seasonings and oil) last for months and are NOT counted "
+        "against the weekly budget, so season every meal freely.\n\n"
         "MAKE THE FOOD SOUND GOOD: season every meal using the seasoning ingredients "
         "(salt, black pepper, garlic, onion, soy sauce, hot sauce, mixed herbs, lemon), "
         "give each meal an appealing, specific name, and write a brief, appetizing "
@@ -51,7 +57,7 @@ def build_system_prompt(catalog: list[Ingredient]) -> str:
         "repetitive plain-ingredient combos.\n\n"
         "Do not invent ingredients or output any nutrition or price numbers — only ids and "
         "gram amounts.\n\n"
-        "INGREDIENT CATALOG (id: name, macros, price):\n"
+        "INGREDIENT CATALOG (id: name, macros, package price):\n"
         f"{catalog_block}"
     )
 

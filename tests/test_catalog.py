@@ -11,6 +11,23 @@ def test_load_catalog_returns_ingredients():
     assert any(i.id == "chicken_breast" for i in catalog)
 
 
+def test_every_entry_has_package_pricing():
+    catalog = load_catalog(CATALOG_PATH)
+    for i in catalog:
+        assert i.package_price > 0, i.id
+        assert i.package_size_g > 0, i.id
+        assert i.package_label, i.id
+
+
+def test_seasonings_and_oil_are_pantry_staples():
+    by_id = catalog_by_id(load_catalog(CATALOG_PATH))
+    assert by_id["salt"].pantry_staple is True
+    assert by_id["olive_oil"].pantry_staple is True
+    # primary foods are weekly groceries, not pantry staples
+    assert by_id["chicken_breast"].pantry_staple is False
+    assert by_id["peanut_butter"].pantry_staple is False
+
+
 def test_catalog_by_id_indexes():
     catalog = load_catalog(CATALOG_PATH)
     by_id = catalog_by_id(catalog)

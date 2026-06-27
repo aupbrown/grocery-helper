@@ -179,16 +179,25 @@ def macro_policy(goal: Goal, target_cal: float, target_protein: float) -> MacroP
 # (seasonings, oil) are never scaled.
 
 WHEY_ID = "whey_protein"
-FMIN, FMAX = 0.6, 1.75              # how far portions may be scaled, "within reason"
-WHEY_DAILY_PROTEIN_CAP = 60.0      # max grams of protein/day added as whey
+SCOOP_GRAMS = 32.0                  # one scoop of whey (per the catalog product)
+PROTEIN_DRINK_NAME = "Daily protein shake"
+FMIN, FMAX = 0.6, 1.75             # how far portions may be scaled, "within reason"
+# Whey is a supplement: at most one scoop/day, taken as a daily drink — never mixed into meals.
+WHEY_MAX_WEEKLY_G = SCOOP_GRAMS * DAYS
 
 
 def _scalable_totals(meals, by_id) -> tuple[float, float, float, float]:
-    """Weekly calories/protein split into non-pantry (scalable) and pantry (fixed)."""
+    """Weekly calories/protein split into non-pantry (scalable) and pantry (fixed).
+
+    Whey is excluded — it is handled separately as the daily protein drink, not as a
+    scalable meal ingredient.
+    """
     ce = pe = cp = pp = 0.0
     for meal in meals:
         for mi in meal.ingredients:
             ing = by_id[mi.ingredient_id]
+            if ing.id == WHEY_ID:
+                continue
             m = macros_for_grams(ing, mi.grams)
             if ing.pantry_staple:
                 cp += m.calories
@@ -199,24 +208,29 @@ def _scalable_totals(meals, by_id) -> tuple[float, float, float, float]:
     return ce, pe, cp, pp
 
 
-def _whey_shake(grams: float) -> Meal:
-    return Meal(name="Whey protein shake", cook_time_minutes=0, servings=DAYS,
-                instructions="Blend whey protein with water or milk — one shake per day.",
+def _protein_drink(grams: float) -> Meal:
+    """A once-a-day supplemental whey drink (servings=DAYS -> one per day)."""
+    scoops_per_day = grams / DAYS / SCOOP_GRAMS
+    return Meal(name=PROTEIN_DRINK_NAME, cook_time_minutes=0, servings=DAYS,
+                instructions=(f"A supplemental protein drink: about {scoops_per_day:.1f} scoop "
+                              "of whey blended with water or milk, once a day."),
                 ingredients=[MealIngredient(ingredient_id=WHEY_ID, grams=round(grams, 1))])
 
 
 def _rebuild(base_meals, f: float, whey_g: float, by_id) -> GeneratedPlan:
-    """Base meals with non-pantry portions scaled by f, plus a whey shake if whey_g >= 1."""
+    """Scale non-pantry meal portions by f; whey is kept OUT of meals and served as a
+    single daily protein drink (if whey_g >= 1)."""
     meals = []
     for meal in base_meals:
         ings = [MealIngredient(
             ingredient_id=mi.ingredient_id,
             grams=mi.grams if by_id[mi.ingredient_id].pantry_staple
             else round(mi.grams * f, 1),
-        ) for mi in meal.ingredients]
-        meals.append(meal.model_copy(update={"ingredients": ings}))
+        ) for mi in meal.ingredients if mi.ingredient_id != WHEY_ID]
+        if ings:   # drop a meal that was nothing but whey powder
+            meals.append(meal.model_copy(update={"ingredients": ings}))
     if whey_g >= 1.0 and WHEY_ID in by_id:
-        meals.append(_whey_shake(whey_g))
+        meals.append(_protein_drink(whey_g))
     return GeneratedPlan(meals=meals)
 
 
@@ -257,7 +271,7 @@ def adjust_to_targets(
 
     if has_whey:
         w = (prot_floor_wk - (f * pe + pp)) / pwhey
-        w = max(0.0, min(w, WHEY_DAILY_PROTEIN_CAP * DAYS / pwhey))
+        w = max(0.0, min(w, WHEY_MAX_WEEKLY_G))   # at most one scoop/day
     else:
         w = 0.0
 

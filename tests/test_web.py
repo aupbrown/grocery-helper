@@ -52,7 +52,7 @@ def test_post_plan_renders_results(monkeypatch):
     assert "Protein target:" in r.text    # met/not-met reporting
     assert "Calorie target:" in r.text
     assert "not met" in r.text            # the stub plan is far below 2700/180
-    assert "Whey protein shake" in r.text  # correction pass tops up protein
+    assert "Daily protein shake" in r.text  # protein topped up via a separate daily drink
 
 
 def test_post_signup_thanks(monkeypatch):

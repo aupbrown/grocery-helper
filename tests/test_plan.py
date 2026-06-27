@@ -7,7 +7,7 @@ from app.catalog import catalog_by_id, load_catalog
 from app.plan import (
     macros_for_meal, macros_for_grams, compute_plan, weekly_grocery_cost,
     pantry_cost, daily_protein_grams, daily_calories, macro_policy,
-    adjust_to_targets, package_cost,
+    adjust_to_targets, SCOOP_GRAMS, PROTEIN_DRINK_NAME, package_cost,
 )
 
 # 1 kg packages keep the whole-package math easy to read.
@@ -205,6 +205,31 @@ def test_adjust_adds_whey_shake_meal():
     adj = adjust_to_targets(_CUT_BASE, BY_ID, inputs, budget_cap=None)
     assert any(mi.ingredient_id == "whey_protein"
                for meal in adj.meals for mi in meal.ingredients)
+
+
+def test_adjust_caps_whey_at_one_scoop_per_day():
+    # High protein target vs a low-protein base would want several scoops; cap at one/day.
+    inputs = _goal_inputs(Goal.cut, 1500, 200)
+    adj = adjust_to_targets(_CUT_BASE, BY_ID, inputs, budget_cap=None)
+    whey_total = sum(mi.grams for meal in adj.meals for mi in meal.ingredients
+                     if mi.ingredient_id == "whey_protein")
+    assert whey_total <= SCOOP_GRAMS * 7 + 0.1   # at most one scoop/day across the week
+
+
+def test_adjust_keeps_whey_out_of_meals():
+    # Even if the LLM dumps whey powder into a meal, the correction pulls it into the drink.
+    polluted = GeneratedPlan(meals=[Meal(name="Shake bowl", cook_time_minutes=5, servings=7,
+        instructions="...", ingredients=[
+            MealIngredient(ingredient_id="chicken_breast", grams=700),
+            MealIngredient(ingredient_id="whey_protein", grams=500)])])
+    adj = adjust_to_targets(polluted, BY_ID, _goal_inputs(Goal.maintain, 2000, 120),
+                            budget_cap=None)
+    offenders = [m.name for m in adj.meals if m.name != PROTEIN_DRINK_NAME
+                 and any(mi.ingredient_id == "whey_protein" for mi in m.ingredients)]
+    assert offenders == []                       # no whey in regular meals
+    assert any(mi.ingredient_id == "whey_protein"
+               for m in adj.meals if m.name == PROTEIN_DRINK_NAME
+               for mi in m.ingredients)          # whey lives only in the daily drink
 
 
 def test_adjust_plan_a_respects_budget_cap_with_residual():

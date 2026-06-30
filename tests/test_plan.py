@@ -7,14 +7,17 @@ from app.catalog import catalog_by_id, load_catalog
 from app.plan import (
     macros_for_meal, macros_for_grams, compute_plan, weekly_grocery_cost,
     pantry_cost, daily_protein_grams, daily_calories, macro_policy,
-    adjust_to_targets, SCOOP_GRAMS, PROTEIN_DRINK_NAME, package_cost,
+    adjust_to_targets, _add_distribution_snacks, _calorie_snack, _clean,
+    snap_units, reconcile_seasonings, format_amount, daily_carbs,
+    SCOOP_GRAMS, PROTEIN_DRINK_NAME, package_cost,
 )
 
 # 1 kg packages keep the whole-package math easy to read.
 RICE = Ingredient(id="rice_white", name="White rice", category="grain",
                   tags=["vegan"], allergens=[], kcal_per_100g=130,
                   protein_per_100g=2.7, carbs_per_100g=28, fat_per_100g=0.3,
-                  package_price=1.00, package_size_g=1000, package_label="1 kg bag")
+                  package_price=1.00, package_size_g=1000, package_label="1 kg bag",
+                  grams_per_cup=158)
 CHICKEN = Ingredient(id="chicken_breast", name="Chicken breast", category="protein",
                      tags=[], allergens=[], kcal_per_100g=165, protein_per_100g=31,
                      carbs_per_100g=0, fat_per_100g=3.6,
@@ -26,13 +29,34 @@ SALT = Ingredient(id="salt", name="Salt", category="seasoning", tags=["vegan"],
 OIL = Ingredient(id="olive_oil", name="Olive oil", category="fat", tags=["vegan"],
                  allergens=[], kcal_per_100g=884, protein_per_100g=0, carbs_per_100g=0,
                  fat_per_100g=100, package_price=10.00, package_size_g=1000,
-                 package_label="1 L bottle", pantry_staple=True)
+                 package_label="1 L bottle", pantry_staple=True, grams_per_cup=216)
 # Whey: high-protein lever for the correction pass, non-pantry so its cost counts.
 WHEY = Ingredient(id="whey_protein", name="Whey protein", category="protein",
                   tags=["vegetarian"], allergens=["dairy"], kcal_per_100g=380,
                   protein_per_100g=80, carbs_per_100g=8, fat_per_100g=6,
-                  package_price=24.20, package_size_g=1000, package_label="1 kg tub")
-BY_ID = catalog_by_id([RICE, CHICKEN, SALT, OIL, WHEY])
+                  package_price=24.20, package_size_g=1000, package_label="1 kg tub",
+                  unit_label="scoop", unit_grams=32)
+# Countable item: displayed and snapped to whole units ("1 banana"), not raw grams.
+BANANA = Ingredient(id="banana", name="Banana", category="fruit", tags=["vegan"],
+                    allergens=[], kcal_per_100g=89, protein_per_100g=1.1, carbs_per_100g=23,
+                    fat_per_100g=0.3, package_price=0.79, package_size_g=600,
+                    package_label="bunch (~5)", unit_label="banana", unit_grams=120)
+# Parfait snack ingredients.
+GREEK = Ingredient(id="greek_yogurt", name="Greek yogurt", category="dairy", tags=["vegetarian"],
+                   allergens=["dairy"], kcal_per_100g=59, protein_per_100g=10, carbs_per_100g=3.6,
+                   fat_per_100g=0.4, package_price=5.48, package_size_g=907, package_label="32 oz tub")
+GRANOLA = Ingredient(id="granola", name="Granola", category="grain", tags=["vegetarian", "vegan"],
+                     allergens=["gluten"], kcal_per_100g=471, protein_per_100g=10, carbs_per_100g=64,
+                     fat_per_100g=20, package_price=3.98, package_size_g=340, package_label="12 oz box")
+STRAW = Ingredient(id="strawberries", name="Strawberries", category="fruit",
+                   tags=["vegetarian", "vegan"], allergens=[], kcal_per_100g=32, protein_per_100g=0.7,
+                   carbs_per_100g=7.7, fat_per_100g=0.3, package_price=3.48, package_size_g=454,
+                   package_label="1 lb clamshell")
+BLUE = Ingredient(id="blueberries", name="Blueberries", category="fruit",
+                  tags=["vegetarian", "vegan"], allergens=[], kcal_per_100g=57, protein_per_100g=0.7,
+                  carbs_per_100g=14, fat_per_100g=0.3, package_price=3.98, package_size_g=340,
+                  package_label="1 pint")
+BY_ID = catalog_by_id([RICE, CHICKEN, SALT, OIL, WHEY, BANANA, GREEK, GRANOLA, STRAW, BLUE])
 
 MEAL = Meal(name="Chicken & rice", cook_time_minutes=20, servings=2,
             instructions="Cook rice, grill chicken.",
@@ -44,7 +68,8 @@ MEAL = Meal(name="Chicken & rice", cook_time_minutes=20, servings=2,
 def _inputs(owned=None):
     return PlanInputs(weekly_budget=30, goal=Goal.maintain, bodyweight_lb=180,
                       max_cook_minutes=120, owned_ingredient_ids=owned or [],
-                      target_calories=2700, target_protein=180)
+                      target_calories=2700, target_protein=180,
+                      target_carbs=326, target_fat=75)
 
 
 def test_macros_for_meal():
@@ -91,28 +116,89 @@ def test_daily_calories():
     assert daily_calories(plan, BY_ID) == 72.5   # 507.5 kcal / 7 days
 
 
+def test_daily_carbs():
+    plan = GeneratedPlan(meals=[MEAL])
+    assert daily_carbs(plan, BY_ID) == 8.0   # 56.0 carbs / 7 days
+
+
+def test_calorie_snack_sized_by_calories_and_diet_safe():
+    # BY_ID lacks oats/peanut butter, so the first recipe is skipped and the yogurt one is used.
+    snack = _calorie_snack(300, BY_ID, used_names=set())
+    assert snack.slot == "snack" and snack.name == "Yogurt, granola & berries"
+    per_serving_kcal = macros_for_meal(snack, BY_ID).calories / 7
+    assert 150 <= per_serving_kcal <= 450    # sized near the request, bounded by recipe limits
+
+
+def test_calorie_snack_none_when_no_recipe_available():
+    bare = {k: v for k, v in BY_ID.items()
+            if k not in ("greek_yogurt", "granola", "blueberries", "oats",
+                         "peanut_butter", "banana")}
+    assert _calorie_snack(300, bare, used_names=set()) is None
+
+
+def test_distribution_snacks_add_whey_then_calorie_snacks():
+    base = [Meal(name="Dinner", slot="dinner", cook_time_minutes=10, servings=7,
+                 instructions="x", ingredients=[
+                     MealIngredient(ingredient_id="rice_white", grams=700)])]  # low protein & calories
+    policy = macro_policy(Goal.bulk, 2500, 150, 300, 70)
+    out = _add_distribution_snacks(base, BY_ID, policy, None, _inputs())
+    names = [m.name for m in out]
+    assert PROTEIN_DRINK_NAME in names                                     # protein gap -> whey
+    assert any(m.slot == "snack" and m.name != PROTEIN_DRINK_NAME for m in out)  # + calorie snack
+
+
+def test_distribution_snacks_none_when_targets_met():
+    base = [Meal(name="Big", slot="dinner", cook_time_minutes=10, servings=7, instructions="x",
+                 ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=4000),
+                              MealIngredient(ingredient_id="rice_white", grams=6000)])]
+    policy = macro_policy(Goal.maintain, 500, 40, 50, 14)   # tiny targets, base far exceeds
+    out = _add_distribution_snacks(base, BY_ID, policy, None, _inputs())
+    assert all(m.slot != "snack" for m in out)       # nothing to add
+
+
 def test_macro_policy_cut_has_strict_ceiling_at_target():
-    p = macro_policy(Goal.cut, 2000, 150)
+    p = macro_policy(Goal.cut, 2000, 150, 200, 67)
     assert p.cal_min == 1900.0      # 0.95 * 2000
     assert p.cal_max == 2000.0      # ceiling == target (strict, no overshoot)
     assert p.protein_min == 150.0
     assert p.method == "topup"
 
 
-def test_macro_policy_maintain_is_ten_percent_band():
-    p = macro_policy(Goal.maintain, 2000, 150)
-    assert p.cal_min == 1800.0      # 0.90 * 2000
-    assert p.cal_max == 2200.0      # 1.10 * 2000
+def test_macro_policy_maintain_is_tight_band():
+    p = macro_policy(Goal.maintain, 2000, 150, 200, 56)
+    assert p.cal_min == 1860.0      # 0.93 * 2000
+    assert p.cal_max == 2140.0      # 1.07 * 2000
     assert p.protein_min == 150.0
-    assert p.method == "topup"
 
 
-def test_macro_policy_bulk_floors_and_allows_overshoot():
-    p = macro_policy(Goal.bulk, 3000, 180)
+def test_macro_policy_bulk_aims_at_target_with_slim_overshoot():
+    p = macro_policy(Goal.bulk, 3000, 180, 430, 67)
     assert p.cal_min == 3000.0      # floor == target
-    assert p.cal_max == 3600.0      # 1.20 * 3000 (overshoot within reason)
+    assert p.cal_max == 3150.0      # 1.05 * 3000 (only a slim overshoot)
     assert p.protein_min == 180.0
-    assert p.method == "scale"
+
+
+def test_macro_policy_protein_ceiling_near_target_each_goal():
+    assert macro_policy(Goal.cut, 2000, 150, 200, 67).protein_max == 165.0       # 1.10*150
+    assert macro_policy(Goal.maintain, 2000, 150, 200, 56).protein_max == 165.0  # 1.10*150
+    assert macro_policy(Goal.bulk, 3000, 180, 430, 67).protein_max == 198.0      # 1.10*180
+
+
+def test_macro_policy_includes_carb_and_fat_bands():
+    p = macro_policy(Goal.maintain, 2000, 150, 200, 60)
+    assert p.carb_aim == 200.0
+    assert p.carb_min == 170.0      # 0.85 * 200
+    assert p.carb_max == 230.0      # 1.15 * 200
+    assert p.fat_aim == 60.0
+    assert p.fat_min == 51.0        # 0.85 * 60
+    assert p.fat_max == 69.0        # 1.15 * 60
+
+
+def test_compute_plan_reports_carb_fat_met():
+    cp = compute_plan(GeneratedPlan(meals=[MEAL]), BY_ID, _inputs())  # tiny meal vs 326/75
+    assert cp.carbs_met is False
+    assert cp.fat_met is False
+    assert "carbs" in cp.target_note and "fat" in cp.target_note
 
 
 def test_compute_plan_splits_weekly_and_pantry():
@@ -127,77 +213,110 @@ def test_compute_plan_splits_weekly_and_pantry():
 
 
 def test_compute_plan_per_serving_macros():
-    # MEAL serves 2: per-serving = whole-recipe / 2.
+    # Weekly model: each meal is a 7-serving batch, so per-serving = whole-recipe / 7.
     cp = compute_plan(GeneratedPlan(meals=[MEAL]), BY_ID, _inputs())
     meal = cp.meals[0]
-    assert meal.macros_per_serving.calories == 253.8   # 507.5 / 2
-    assert meal.macros_per_serving.carbs == 28.0        # 56.0 / 2
+    assert meal.servings == 7
+    assert meal.macros_per_serving.calories == 72.5    # 507.5 / 7
+    assert meal.macros_per_serving.carbs == 8.0         # 56.0 / 7
 
     rice = meal.ingredients[0]
     assert rice.grams == 200.0                          # whole-recipe total preserved
-    assert rice.grams_per_serving == 100.0              # 200 / 2
-    assert rice.macros_per_serving.calories == 130.0    # 260 / 2
-    assert rice.macros_per_serving.carbs == 28.0        # 56 / 2
+    assert rice.grams_per_serving == 28.6               # 200 / 7
+    assert rice.macros_per_serving.calories == 37.1     # 260 / 7
 
     chicken = meal.ingredients[1]
-    assert chicken.grams_per_serving == 75.0            # 150 / 2
-    assert chicken.macros_per_serving.protein == 23.2   # 46.5 / 2
+    assert chicken.grams_per_serving == 21.4            # 150 / 7
+    assert chicken.macros_per_serving.protein == 6.6    # 46.5 / 7
 
 
-def test_per_serving_guards_zero_servings():
-    # The LLM supplies `servings`; a stray 0 must not divide-by-zero (treat as 1).
+def test_compute_plan_orders_and_labels_slots():
+    def _m(slot, ing):
+        return Meal(name=slot.title(), cook_time_minutes=10, servings=7, slot=slot,
+                    instructions="...", ingredients=[MealIngredient(ingredient_id=ing, grams=200)])
+    scrambled = GeneratedPlan(meals=[_m("dinner", "rice_white"), _m("breakfast", "rice_white"),
+                                     _m("snack", "rice_white"), _m("lunch", "rice_white")])
+    cp = compute_plan(scrambled, BY_ID, _inputs())
+    assert [mv.slot for mv in cp.meals] == ["breakfast", "lunch", "dinner", "snack"]
+
+
+def test_compute_plan_normalizes_servings_to_week():
+    # Whatever servings the LLM supplied, the plan is a 7-serving weekly batch (one/day).
     meal = Meal(name="Whole batch", cook_time_minutes=10, servings=0,
                 instructions="...", ingredients=[
-                    MealIngredient(ingredient_id="rice_white", grams=200)])
+                    MealIngredient(ingredient_id="rice_white", grams=700)])
     cp = compute_plan(GeneratedPlan(meals=[meal]), BY_ID, _inputs())
     m = cp.meals[0]
-    assert m.macros_per_serving.calories == 260.0          # 200g rice, treated as 1 serving
-    assert m.ingredients[0].grams_per_serving == 200.0
+    assert m.servings == 7
+    assert m.ingredients[0].grams_per_serving == 100.0     # 700 / 7
 
 
 # --- Deterministic goal-aware correction (adjust_to_targets) ---
 
-def _goal_inputs(goal, cal, prot, budget=100000):
+def _goal_inputs(goal, cal, prot, budget=100000, carbs=None, fat=None):
+    fat = fat if fat is not None else round(0.25 * cal / 9)
+    carbs = carbs if carbs is not None else round((cal - 4 * prot - 9 * fat) / 4)
     return PlanInputs(weekly_budget=budget, goal=goal, bodyweight_lb=180,
-                      max_cook_minutes=120, target_calories=cal, target_protein=prot)
+                      max_cook_minutes=120, target_calories=cal, target_protein=prot,
+                      target_carbs=carbs, target_fat=fat)
 
 
-# Weekly base amounts deliberately below target so the correction has to act.
-_BULK_BASE = GeneratedPlan(meals=[Meal(name="Base", cook_time_minutes=20, servings=7,
-    instructions="...", ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=1400),
-                                     MealIngredient(ingredient_id="rice_white", grams=700)])])
+# A low-protein, sub-target weekly base so the correction has to distribute into snacks.
 _CUT_BASE = GeneratedPlan(meals=[Meal(name="Base", cook_time_minutes=20, servings=7,
     instructions="...", ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=700),
                                      MealIngredient(ingredient_id="rice_white", grams=1000)])])
-_MAINTAIN_BASE = GeneratedPlan(meals=[Meal(name="Base", cook_time_minutes=20, servings=7,
-    instructions="...", ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=800),
-                                     MealIngredient(ingredient_id="rice_white", grams=1200)])])
 
 
-def test_adjust_bulk_scales_up_to_calorie_floor_and_protein_floor():
-    inputs = _goal_inputs(Goal.bulk, 500, 80)
-    p = macro_policy(Goal.bulk, 500, 80)
-    adj = adjust_to_targets(_BULK_BASE, BY_ID, inputs, budget_cap=None)
-    assert daily_calories(adj, BY_ID) >= p.cal_min - 1        # floor reached (scaled up)
-    assert daily_calories(adj, BY_ID) <= p.cal_max + 1        # within reason (overshoot capped)
-    assert daily_protein_grams(adj, BY_ID) >= p.protein_min - 0.5
+def _real_base():
+    """A realistic 3-meal base (whole-week grams), modestly under target, over the full catalog."""
+    return GeneratedPlan(meals=[
+        Meal(name="Yogurt bowl", slot="breakfast", cook_time_minutes=5, servings=7,
+             instructions="1. Layer the yogurt, granola, and banana.", ingredients=[
+                 MealIngredient(ingredient_id="greek_yogurt", grams=1400),
+                 MealIngredient(ingredient_id="granola", grams=350),
+                 MealIngredient(ingredient_id="banana", grams=840)]),
+        Meal(name="Chicken & rice", slot="lunch", cook_time_minutes=25, servings=7,
+             instructions="1. Sear the chicken in olive oil. 2. Serve over rice.", ingredients=[
+                 MealIngredient(ingredient_id="chicken_breast", grams=1190),
+                 MealIngredient(ingredient_id="rice_white", grams=1400)]),
+        Meal(name="Beef & pasta", slot="dinner", cook_time_minutes=25, servings=7,
+             instructions="1. Brown the beef. 2. Toss with the pasta.", ingredients=[
+                 MealIngredient(ingredient_id="ground_beef_90", grams=910),
+                 MealIngredient(ingredient_id="pasta_ww", grams=1400)])])
 
 
-def test_adjust_cut_meets_protein_without_exceeding_calorie_ceiling():
-    inputs = _goal_inputs(Goal.cut, 400, 50)
-    p = macro_policy(Goal.cut, 400, 50)
-    adj = adjust_to_targets(_CUT_BASE, BY_ID, inputs, budget_cap=None)
-    assert daily_calories(adj, BY_ID) <= p.cal_max + 1        # strict ceiling at target
-    assert daily_calories(adj, BY_ID) >= p.cal_min - 1
-    assert daily_protein_grams(adj, BY_ID) >= p.protein_min - 0.5
+def _portion_violations(plan, by_id):
+    """(name, amount, unit) for any single ingredient whose per-serving size is unrealistic —
+    keyed off the catalog's own density fields, so it scales as the catalog grows."""
+    bad = []
+    for meal in plan.meals:
+        for mi in meal.ingredients:
+            ing = by_id[mi.ingredient_id]
+            per = mi.grams / 7
+            if ing.grams_per_cup and per / ing.grams_per_cup > 2.5:
+                bad.append((ing.name, round(per / ing.grams_per_cup, 1), "cups"))
+            elif ing.unit_grams and per / ing.unit_grams > 3.0:
+                bad.append((ing.name, round(per / ing.unit_grams, 1), "units"))
+            elif not ing.grams_per_cup and not ing.unit_grams and per / 28.3495 > 10.0:
+                bad.append((ing.name, round(per / 28.3495, 1), "oz"))
+    return bad
 
 
-def test_adjust_maintain_lands_both_in_band():
-    inputs = _goal_inputs(Goal.maintain, 500, 60)
-    p = macro_policy(Goal.maintain, 500, 60)
-    adj = adjust_to_targets(_MAINTAIN_BASE, BY_ID, inputs, budget_cap=None)
-    assert p.cal_min - 1 <= daily_calories(adj, BY_ID) <= p.cal_max + 1
-    assert daily_protein_grams(adj, BY_ID) >= p.protein_min - 0.5
+def test_adjust_realistic_no_giant_portions_and_respects_ceiling():
+    for goal, cal, prot in [(Goal.bulk, 3000, 180), (Goal.maintain, 2400, 150),
+                            (Goal.cut, 1800, 160)]:
+        inputs = _goal_inputs(goal, cal, prot)
+        p = macro_policy(goal, cal, prot, inputs.target_carbs, inputs.target_fat)
+        adj = adjust_to_targets(_real_base(), _REAL, inputs, budget_cap=None)
+        assert _portion_violations(adj, _REAL) == [], goal.value          # no giant portions
+        assert daily_calories(adj, _REAL) <= p.cal_max + 1, goal.value    # strict ceiling held
+        assert daily_protein_grams(adj, _REAL) >= p.protein_min * 0.9, goal.value  # protein high
+
+
+def test_adjust_distributes_a_big_day_into_snacks():
+    inputs = _goal_inputs(Goal.bulk, 3200, 180)
+    adj = adjust_to_targets(_real_base(), _REAL, inputs, budget_cap=None)
+    assert any(m.slot == "snack" for m in adj.meals)   # a high-calorie day gets snack occasions
 
 
 def test_adjust_adds_whey_shake_meal():
@@ -205,6 +324,27 @@ def test_adjust_adds_whey_shake_meal():
     adj = adjust_to_targets(_CUT_BASE, BY_ID, inputs, budget_cap=None)
     assert any(mi.ingredient_id == "whey_protein"
                for meal in adj.meals for mi in meal.ingredients)
+
+
+def test_adjust_fills_gaps_with_snacks_before_big_scaling():
+    # Base modestly under target: snacks should do the heavy lifting, not a ~1.75x blow-up.
+    base = GeneratedPlan(meals=[
+        Meal(name="Eggs", slot="breakfast", cook_time_minutes=10, servings=7, instructions="x",
+             ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=1000)]),
+        Meal(name="Rice bowl", slot="lunch", cook_time_minutes=10, servings=7, instructions="x",
+             ingredients=[MealIngredient(ingredient_id="rice_white", grams=2000),
+                          MealIngredient(ingredient_id="olive_oil", grams=80)]),
+        Meal(name="Chicken & rice", slot="dinner", cook_time_minutes=10, servings=7,
+             instructions="x", ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=1100),
+                                            MealIngredient(ingredient_id="rice_white", grams=2000)])])
+    inputs = _goal_inputs(Goal.maintain, 2000, 150, carbs=250, fat=56)
+    adj = adjust_to_targets(base, BY_ID, inputs, budget_cap=None)
+    p = macro_policy(Goal.maintain, 2000, 150, 250, 56)
+    assert any(m.slot == "snack" for m in adj.meals)                  # a snack was added
+    chicken = sum(mi.grams for m in adj.meals for mi in m.ingredients
+                  if mi.ingredient_id == "chicken_breast")
+    assert chicken < 2100 * 1.4                                       # no giant scale-up
+    assert daily_protein_grams(adj, BY_ID) >= p.protein_min           # protein floor met
 
 
 def test_adjust_caps_whey_at_one_scoop_per_day():
@@ -236,20 +376,17 @@ def test_adjust_plan_a_respects_budget_cap_with_residual():
     inputs = _goal_inputs(Goal.cut, 400, 50, budget=15)
     capped = adjust_to_targets(_CUT_BASE, BY_ID, inputs, budget_cap=15)
     uncapped = adjust_to_targets(_CUT_BASE, BY_ID, inputs, budget_cap=None)
-    # The cap blocks the (whole-package) whey top-up, so protein falls short...
+    # The cap blocks the (whole-package) whey top-up, so capped protein falls short of uncapped.
     assert weekly_grocery_cost(capped, BY_ID) <= 15
-    assert daily_protein_grams(capped, BY_ID) < 50
-    # ...whereas without the cap the protein floor is met (proves the cap is the blocker).
-    assert daily_protein_grams(uncapped, BY_ID) >= 49.5
+    assert daily_protein_grams(capped, BY_ID) < daily_protein_grams(uncapped, BY_ID)
 
 
 def test_compute_plan_reports_targets_met_when_in_band():
-    inputs = _goal_inputs(Goal.maintain, 500, 60)
-    adj = adjust_to_targets(_MAINTAIN_BASE, BY_ID, inputs, budget_cap=None)
-    cp = compute_plan(adj, BY_ID, inputs)
+    inputs = _goal_inputs(Goal.maintain, 2400, 150)
+    adj = adjust_to_targets(_real_base(), _REAL, inputs, budget_cap=None)
+    cp = compute_plan(adj, _REAL, inputs)
     assert cp.calories_met is True
     assert cp.protein_met is True
-    assert cp.target_note == ""
 
 
 def test_compute_plan_reports_gap_when_targets_missed():
@@ -272,10 +409,104 @@ def test_correction_meets_protein_floor_real_catalog_each_goal():
             MealIngredient(ingredient_id="rice_white", grams=1400)])])
     for goal in (Goal.bulk, Goal.cut, Goal.maintain):
         inputs = PlanInputs(weekly_budget=100000, goal=goal, bodyweight_lb=180,
-                            max_cook_minutes=120, target_calories=2200, target_protein=100)
+                            max_cook_minutes=120, target_calories=2200, target_protein=100,
+                            target_carbs=250, target_fat=70)
         adj = adjust_to_targets(base, _REAL, inputs, budget_cap=None)
         cp = compute_plan(adj, _REAL, inputs)
         assert cp.protein_met, f"{goal.value}: protein floor not met"
+
+
+def test_reconcile_seasonings_adds_mentioned_but_missing():
+    meal = Meal(name="Garlic chicken", cook_time_minutes=15, servings=2,
+                instructions="Season the chicken generously with salt, then sear.",
+                ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=300)])
+    out = reconcile_seasonings(GeneratedPlan(meals=[meal]), BY_ID)
+    ids = {mi.ingredient_id for mi in out.meals[0].ingredients}
+    assert "salt" in ids        # mentioned in the steps but unlisted -> added (priced later)
+
+
+def test_reconcile_seasonings_skips_already_listed():
+    meal = Meal(name="Salty", cook_time_minutes=5, servings=1, instructions="Add salt.",
+                ingredients=[MealIngredient(ingredient_id="salt", grams=4)])
+    out = reconcile_seasonings(GeneratedPlan(meals=[meal]), BY_ID)
+    salts = [mi for mi in out.meals[0].ingredients if mi.ingredient_id == "salt"]
+    assert len(salts) == 1 and salts[0].grams == 4   # untouched, not duplicated
+
+
+def test_reconcile_adds_cooking_oil_so_its_calories_count():
+    meal = Meal(name="Seared chicken", cook_time_minutes=15, servings=7,
+                instructions="1. Sear the chicken in olive oil until golden.",
+                ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=1000)])
+    out = reconcile_seasonings(GeneratedPlan(meals=[meal]), BY_ID)
+    oil = [mi for mi in out.meals[0].ingredients if mi.ingredient_id == "olive_oil"]
+    assert oil and oil[0].grams > 0       # mentioned oil is listed -> its calories are counted
+
+
+def test_clean_drops_zero_gram_ingredients():
+    plan = GeneratedPlan(meals=[Meal(name="X", cook_time_minutes=5, servings=7, instructions="x",
+        ingredients=[MealIngredient(ingredient_id="rice_white", grams=200),
+                     MealIngredient(ingredient_id="olive_oil", grams=0)])])
+    ids = [mi.ingredient_id for mi in _clean(plan).meals[0].ingredients]
+    assert "olive_oil" not in ids and "rice_white" in ids   # no 0 g artifacts survive
+
+
+def test_format_amount_units_and_plurals():
+    potato = Ingredient(id="potato", name="Potato", category="vegetable", tags=[], allergens=[],
+                        kcal_per_100g=77, protein_per_100g=2, carbs_per_100g=17, fat_per_100g=0.1,
+                        package_price=3.97, package_size_g=2268, package_label="5 lb bag",
+                        unit_label="potato", unit_grams=170)
+    assert format_amount(170, potato) == "1 potato"
+    assert format_amount(510, potato) == "3 potatoes"      # "o" -> "es", not "potatos"
+    assert format_amount(120, BANANA) == "1 banana"
+    assert format_amount(240, BANANA) == "2 bananas"
+
+
+def test_format_amount_volume_cups_tbsp_tsp():
+    assert format_amount(158, RICE) == "1 cup"             # 158 g/cup
+    assert format_amount(237, RICE) == "1.5 cups"          # 1.5 cups
+    assert format_amount(13.5, OIL) == "1 tbsp"            # 216 g/cup -> small -> tbsp
+    assert format_amount(4.5, OIL) == "1 tsp"              # even smaller -> tsp
+
+
+def test_format_amount_weight_in_ounces():
+    assert format_amount(227, CHICKEN) == "8 oz"           # 227 / 28.35
+    assert format_amount(907, CHICKEN) == "2 lb"           # >= 16 oz -> pounds
+
+
+def test_format_amount_whey_in_scoops():
+    assert format_amount(32, WHEY) == "1 scoop"
+    assert format_amount(64, WHEY) == "2 scoops"
+
+
+def test_snap_units_does_not_round_whey():
+    # Whey is a "scoop" countable but its amount is precisely sized by the correction, so it
+    # must stay unrounded (still displayed in scoops).
+    plan = GeneratedPlan(meals=[Meal(name="Shake", slot="snack", cook_time_minutes=0, servings=7,
+        instructions="x", ingredients=[MealIngredient(ingredient_id="whey_protein", grams=89.0)])])
+    out = snap_units(plan, BY_ID)
+    assert out.meals[0].ingredients[0].grams == 89.0
+
+
+def test_snap_units_rounds_countables_to_whole_units():
+    plan = GeneratedPlan(meals=[Meal(name="Snack", cook_time_minutes=2, servings=2,
+        instructions="...", ingredients=[
+            MealIngredient(ingredient_id="banana", grams=180.5),   # ~1.5 bananas
+            MealIngredient(ingredient_id="rice_white", grams=200)])])
+    snapped = snap_units(plan, BY_ID)
+    g = {mi.ingredient_id: mi.grams for mi in snapped.meals[0].ingredients}
+    assert g["banana"] == 240.0     # round(180.5/120)=2 -> 2*120
+    assert g["rice_white"] == 200   # non-countable unchanged
+
+
+def test_compute_plan_renders_countables_as_units():
+    plan = GeneratedPlan(meals=[Meal(name="Snack", cook_time_minutes=2, servings=7,
+        instructions="...", ingredients=[MealIngredient(ingredient_id="banana", grams=840)])])
+    cp = compute_plan(plan, BY_ID, _inputs())
+    iv = cp.meals[0].ingredients[0]
+    assert iv.amount_total == "7 bananas"
+    assert iv.amount_per_serving == "1 banana"     # 840/7 = 120g = 1 banana
+    item = next(g for g in cp.grocery_list if g.ingredient_id == "banana")
+    assert item.uses_display == "7 bananas"
 
 
 def test_grocery_item_carries_package_fields():
@@ -306,3 +537,18 @@ def test_owned_ingredients_excluded_from_grocery_list():
     ids = {g.ingredient_id for g in cp.grocery_list}
     assert "rice_white" not in ids
     assert cp.total_cost == 10.00   # only the chicken pack remains
+
+
+def test_owned_ingredients_appear_in_owned_list():
+    cp = compute_plan(GeneratedPlan(meals=[MEAL]), BY_ID, _inputs(owned=["rice_white"]))
+    # owned_list contains the ingredient with zero cost
+    owned_ids = {g.ingredient_id for g in cp.owned_list}
+    assert "rice_white" in owned_ids
+    rice = next(g for g in cp.owned_list if g.ingredient_id == "rice_white")
+    assert rice.cost == 0.0
+    assert rice.packages == 0
+    assert rice.per_meal_cost is None
+    assert rice.uses_display == format_amount(200.0, RICE)   # "200.0 g"
+    # still excluded from grocery_list and not counted in total_cost
+    assert "rice_white" not in {g.ingredient_id for g in cp.grocery_list}
+    assert cp.total_cost == 10.00

@@ -17,6 +17,12 @@
     <label>Daily protein (g)
       <input type="number" name="target_protein" step="5" value="{{ targets.protein }}" required>
     </label>
+    <label>Daily carbs (g)
+      <input type="number" name="target_carbs" step="5" value="{{ targets.carbs }}" required>
+    </label>
+    <label>Daily fat (g)
+      <input type="number" name="target_fat" step="5" value="{{ targets.fat }}" required>
+    </label>
 
     <!-- carry step-1 inputs forward -->
     <input type="hidden" name="weekly_budget" value="{{ weekly_budget }}">
@@ -31,6 +37,7 @@
     {% for oid in owned_ingredient_ids %}
       <input type="hidden" name="owned_ingredient_ids" value="{{ oid }}">
     {% endfor %}
+    <input type="hidden" name="kitchen_json" value="{{ kitchen_json }}">
 
     <button type="submit" id="generate-btn">Generate my meal plan</button>
   </form>

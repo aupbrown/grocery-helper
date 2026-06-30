@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your pantry</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<main>
+  <p class="nav"><a href="/account">Account</a> · <a href="/settings">Kitchen</a> · <a href="/">Plan a week</a></p>
+  <h1>Your pantry</h1>
+  <p class="note">What you already have. We use it first and leave it off your grocery cost.</p>
+
+  {% if pantry %}
+  <table>
+    <thead><tr><th>Item</th><th>Have</th><th>Priority</th><th></th></tr></thead>
+    <tbody>
+      {% for p in pantry %}
+      <tr>
+        <td>{{ p.item_name }}</td>
+        <td>{% if p.quantity %}{{ p.quantity }}{% if p.unit %} {{ p.unit }}{% endif %}{% else %}✓{% endif %}</td>
+        <td>{{ p.priority }}</td>
+        <td><form class="inline-form" method="post" action="/pantry/{{ p.id }}/delete"><button class="linkbtn">remove</button></form></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="note">Your pantry is empty — add what you already have below.</p>
+  {% endif %}
+
+  <h2>Quick add</h2>
+  <form method="post" action="/pantry">
+    <fieldset>
+      <legend>Check what you have on hand</legend>
+      {% for i in catalog %}{% if i.id not in owned_keys %}
+        <label class="inline"><input type="checkbox" name="add_ids" value="{{ i.id }}"> {{ i.name }}</label>
+      {% endif %}{% endfor %}
+    </fieldset>
+    <button type="submit">Add checked</button>
+  </form>
+
+  <h2>Add something specific</h2>
+  <p class="note">For leftovers or items not in our catalog (won't change grocery cost unless it matches a catalog item).</p>
+  <form method="post" action="/pantry">
+    <label>Item name <input type="text" name="item_name" placeholder="e.g. leftover rice" required></label>
+    <label>Quantity <input type="number" name="quantity" step="any" min="0"></label>
+    <label>Unit <input type="text" name="unit" placeholder="cups, g, cans"></label>
+    <label>Expiration date (optional) <input type="date" name="expiration_date"></label>
+    <label>Priority
+      <select name="priority">
+        <option value="use_first">Use first</option>
+        <option value="normal" selected>Normal</option>
+        <option value="avoid">Avoid</option>
+      </select>
+    </label>
+    <button type="submit">Add item</button>
+  </form>
+</main>
+</body>
+</html>

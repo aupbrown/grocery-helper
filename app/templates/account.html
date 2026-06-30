@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your account</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<main>
+  <h1>Your account</h1>
+  <p class="note">{{ user.email }} ·
+     <form class="inline-form" method="post" action="/logout"><button class="linkbtn">Log out</button></form></p>
+  <p><a href="/">Generate a new week</a></p>
+
+  <h2>Saved weeks</h2>
+  {% if plans %}
+  <table>
+    <thead><tr><th>Saved</th><th>Goal</th><th>Budget</th><th>Est. cost</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for p in plans %}
+      <tr>
+        <td>{{ p.created_at.strftime('%b %d') }}</td>
+        <td>{{ p.goal }}</td>
+        <td>${{ '%.0f'|format(p.weekly_budget) }}</td>
+        <td>${{ '%.2f'|format(p.estimated_total_cost) }}</td>
+        <td>{% if p.validation_status == 'valid' %}<span class="ok">valid</span>
+            {% elif p.validation_status == 'invalid' %}<span class="over">needs fixes</span>
+            {% else %}{{ p.validation_status }}{% endif %}</td>
+        <td><a href="/plans/{{ p.id }}">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="note">No saved weeks yet. Generate a plan and save it to your account.</p>
+  {% endif %}
+</main>
+</body>
+</html>

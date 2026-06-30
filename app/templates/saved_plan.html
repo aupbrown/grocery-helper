@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Saved week</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<main>
+  <h1>Your saved week</h1>
+  <p class="note"><a href="/account">← All saved weeks</a> · {{ rec.goal }} goal</p>
+
+  <section class="summary">
+    <p><strong>Groceries:</strong> ${{ "%.2f"|format(plan.total_cost) }}
+       / ${{ "%.0f"|format(plan.weekly_budget) }} budget
+       {% if plan.within_budget %}<span class="ok">(within budget)</span>
+       {% else %}<span class="over">(over budget)</span>{% endif %}</p>
+    <p><strong>Daily macros:</strong>
+       {{ plan.daily_macros.calories }} kcal (target {{ plan.targets.calories }}),
+       {{ plan.daily_macros.protein }}g protein (target {{ plan.targets.protein }}),
+       {{ plan.daily_macros.carbs }}g carbs, {{ plan.daily_macros.fat }}g fat</p>
+  </section>
+
+  {% for meal in plan.meals %}
+  <article class="meal">
+    <h3><span class="slot">{{ meal.slot|capitalize }}</span> · {{ meal.name }}</h3>
+    <p class="meta">Batch: makes {{ meal.servings }} servings (one a day) · {{ meal.cook_time_minutes }} min
+      {% if meal.pan_loads > 1 %}· cook in {{ meal.pan_loads }} pan-loads{% endif %}
+      {% if meal.equipment_required %}<span class="chip">{{ meal.equipment_required|join(', ') }}</span>
+      {% else %}<span class="chip">no-cook</span>{% endif %}</p>
+    <p class="per-serving"><strong>Per serving:</strong>
+       {{ meal.macros_per_serving.calories }} kcal · {{ meal.macros_per_serving.protein }}g protein ·
+       {{ meal.macros_per_serving.carbs }}g carbs · {{ meal.macros_per_serving.fat }}g fat</p>
+    <ul>
+      {% for ing in meal.ingredients %}
+        <li>{{ ing.name }} — {{ ing.amount_per_serving }}/serving ({{ ing.amount_total }} total)</li>
+      {% endfor %}
+    </ul>
+  </article>
+  {% endfor %}
+
+  <h4>This week's groceries</h4>
+  <table>
+    <thead><tr><th>Item</th><th>Buy</th><th>Uses</th><th>Cost</th></tr></thead>
+    <tbody>
+      {% for g in plan.grocery_list %}
+        <tr><td>{{ g.name }}</td><td>{{ g.packages }} × {{ g.package_label }}</td>
+            <td>{{ g.uses_display }}</td><td>${{ "%.2f"|format(g.cost) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

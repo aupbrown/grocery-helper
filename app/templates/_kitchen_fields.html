@@ -1,0 +1,43 @@
+<fieldset id="kitchen">
+  <legend>Your kitchen</legend>
+  <p class="note">We only suggest meals you can actually make. Pick a preset, or check what you have.</p>
+  <div class="presets">
+    <button type="button" onclick="applyPreset('apartment')">Apartment</button>
+    <button type="button" onclick="applyPreset('shared')">Shared kitchen</button>
+    <button type="button" onclick="applyPreset('athlete')">Meal-prep</button>
+    <button type="button" onclick="applyPreset('dorm')">Dorm (microwave only)</button>
+  </div>
+  <label class="inline"><input type="checkbox" name="microwave" value="true" {% if kitchen.microwave %}checked{% endif %}> Microwave</label>
+  <label class="inline"><input type="checkbox" name="stove" value="true" {% if kitchen.stove %}checked{% endif %}> Stove</label>
+  <label class="inline"><input type="checkbox" name="oven" value="true" {% if kitchen.oven %}checked{% endif %}> Oven</label>
+  <label class="inline"><input type="checkbox" name="air_fryer" value="true" {% if kitchen.air_fryer %}checked{% endif %}> Air fryer</label>
+  <label class="inline"><input type="checkbox" name="blender" value="true" {% if kitchen.blender %}checked{% endif %}> Blender</label>
+  <label class="inline"><input type="checkbox" name="rice_cooker" value="true" {% if kitchen.rice_cooker %}checked{% endif %}> Rice cooker</label>
+  <label class="inline"><input type="checkbox" name="freezer" value="true" {% if kitchen.freezer %}checked{% endif %}> Freezer</label>
+  <label class="inline"><input type="checkbox" name="mini_fridge" value="true" {% if kitchen.mini_fridge %}checked{% endif %}> Mini-fridge only</label>
+  <label class="inline"><input type="checkbox" name="no_cook_preferred" value="true" {% if kitchen.no_cook_preferred %}checked{% endif %}> Prefer no-cook</label>
+  <label class="inline"><input type="checkbox" name="prioritize_time" value="true" {% if kitchen.prioritize_time %}checked{% endif %}> Prioritize saving time</label>
+  <label>Longest single cooking session (minutes)
+    <input type="number" name="max_single_session_minutes" min="5" step="5" value="{{ kitchen.max_single_session_minutes }}">
+  </label>
+  <label>Batch-cook sessions per week
+    <input type="number" name="preferred_prep_sessions" min="1" max="7" step="1" value="{{ kitchen.preferred_prep_sessions }}">
+  </label>
+</fieldset>
+<script>
+  const KITCHEN_PRESETS = {
+    apartment: {microwave:1,stove:1,oven:1,air_fryer:0,blender:0,rice_cooker:0,freezer:1,mini_fridge:0,no_cook_preferred:0,max_single_session_minutes:60,preferred_prep_sessions:2},
+    shared:    {microwave:1,stove:1,oven:1,air_fryer:0,blender:0,rice_cooker:0,freezer:1,mini_fridge:0,no_cook_preferred:0,max_single_session_minutes:45,preferred_prep_sessions:2},
+    athlete:   {microwave:1,stove:1,oven:1,air_fryer:1,blender:0,rice_cooker:0,freezer:1,mini_fridge:0,no_cook_preferred:0,max_single_session_minutes:90,preferred_prep_sessions:1},
+    dorm:      {microwave:1,stove:0,oven:0,air_fryer:0,blender:0,rice_cooker:0,freezer:0,mini_fridge:1,no_cook_preferred:1,max_single_session_minutes:20,preferred_prep_sessions:3},
+  };
+  function applyPreset(name) {
+    const p = KITCHEN_PRESETS[name];
+    for (const k in p) {
+      const el = document.querySelector('#kitchen [name="' + k + '"]');
+      if (!el) continue;
+      if (el.type === 'checkbox') el.checked = !!p[k];
+      else el.value = p[k];
+    }
+  }
+</script>

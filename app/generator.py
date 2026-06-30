@@ -1,7 +1,9 @@
 from google import genai
 
-from app.models import GeneratedPlan, Ingredient, PlanInputs
+from app.models import GeneratedPlan, Meal, Ingredient, PlanInputs
 from app.plan import weekly_grocery_cost, daily_protein_grams, daily_calories
+from app.kitchen import EQUIPMENT, available_equipment
+from app.meal_templates import fallback_plan
 
 # Free-tier model. Flash-Lite has high daily request limits, so we use it to iterate on
 # non-quality features without burning the ~20 RPD cap on more capable free models.
@@ -34,13 +36,19 @@ def build_system_prompt(catalog: list[Ingredient]) -> str:
         "You are a meal planner for college students on a budget. "
         "Compose a week of meals using ONLY the ingredients in the catalog below, "
         "referencing each by its exact id. Express every quantity in grams. "
-        "Produce 3 to 5 distinct meals (meal-prep style) that together cover the week. "
-        "Hit the daily calorie and protein targets across the week CLOSELY (within about "
-        "10%) — do NOT greatly exceed them; overshooting protein wastes a tight budget. "
-        "When protein is comfortably met, spend any remaining room on variety and flavor, "
-        "not more protein. Use realistic per-serving portions (roughly 150-250g cooked "
-        "protein per serving, sensible grain and vegetable amounts) and respect the "
-        "per-week cooking-time limit. The request states a PRIORITY telling you whether "
+        "Produce a WEEKLY MEAL PLAN of one breakfast, one lunch, one dinner, AND one or two "
+        "snacks — SPREAD the day's calories and protein across all of them so no single meal is "
+        "huge. Tag each meal with its slot — 'breakfast', 'lunch', 'dinner', or 'snack'. Each "
+        "meal is batch-cooked for the whole week (7 servings, one eaten per day), so express "
+        "every ingredient quantity in grams as the WHOLE-WEEK amount (the full 7-serving batch), "
+        "not a single serving. "
+        "KEEP PORTIONS REALISTIC: never let one ingredient dominate a serving — at most about "
+        "1.5 cups of cooked grains, 2 tablespoons of nut butter, or 8 oz of meat per serving. If "
+        "a serving would be too big, move calories into another meal or a snack instead. "
+        "Hit the daily calorie and protein targets CLOSELY (within about 5%) — do NOT exceed "
+        "them; overshooting protein wastes a tight budget. When protein is comfortably met, "
+        "spend any remaining room on variety and flavor, not more protein. "
+        "Respect the per-week cooking-time limit. The request states a PRIORITY telling you whether "
         "budget or protein is the hard constraint — honor it. For cheap protein, lean on "
         "eggs, beans, lentils, canned tuna, and Greek yogurt; for cheap calories, on rice, "
         "oats, and potatoes. Do NOT put whey protein powder into meals — a single daily "
@@ -51,16 +59,44 @@ def build_system_prompt(catalog: list[Ingredient]) -> str:
         "you introduce across several meals rather than buying many items for a single dab. "
         "Items marked PANTRY STAPLE (seasonings and oil) last for months and are NOT counted "
         "against the weekly budget, so season every meal freely.\n\n"
+        "DECLARE EQUIPMENT: for each meal set equipment_required to a list using ONLY these "
+        "tokens — microwave, stove, oven, air_fryer, blender, rice_cooker — and use [] for a "
+        "no-cook meal. Use ONLY equipment the request says is available, and honor any no-cook or "
+        "save-time preference (favor batch-friendly oven sheet-pan or one-pot meals when asked to "
+        "save time).\n\n"
         "MAKE THE FOOD SOUND GOOD: season every meal using the seasoning ingredients "
-        "(salt, black pepper, garlic, onion, soy sauce, hot sauce, mixed herbs, lemon), "
-        "give each meal an appealing, specific name, and write a brief, appetizing "
-        "instruction describing how to cook it and what it tastes like. Avoid bland, "
-        "repetitive plain-ingredient combos.\n\n"
+        "(salt, black pepper, garlic, onion, soy sauce, hot sauce, mixed herbs, lemon) and "
+        "give each meal an appealing, specific name.\n\n"
+        "WRITE METHOD-ONLY STEPS: the instructions are numbered, step-by-step cooking METHOD — "
+        "prep, cook temperatures and times, and assembly — one step per line (start each line "
+        "'1.', '2.', ...). Do NOT put any quantities in the steps — no grams, cups, ounces, or "
+        "counts; the exact per-serving and whole-batch amounts are shown separately alongside the "
+        "ingredient list. Refer to ingredients by name ('cook the rice', 'brown the beef', 'stir "
+        "in the peanut butter'). Because each batch makes 7 servings, tell the cook to work in "
+        "batches wherever a home pan or pot can't hold it all (e.g. 'brown the beef in 2–3 "
+        "pan-loads', 'boil the pasta in two pots'). EVERY seasoning or ingredient you mention in "
+        "the steps MUST also appear in that meal's ingredient list (list every seasoning you use) "
+        "so it is priced and counted; never say 'season to taste' or 'fry in oil' without "
+        "listing it.\n\n"
         "Do not invent ingredients or output any nutrition or price numbers — only ids and "
         "gram amounts.\n\n"
         "INGREDIENT CATALOG (id: name, macros, package price):\n"
         f"{catalog_block}"
     )
+
+
+def _kitchen_block(inputs: PlanInputs) -> str:
+    kit = inputs.kitchen
+    avail = ", ".join(sorted(available_equipment(kit))) or "none — no-cook meals only"
+    block = f"Kitchen equipment available: {avail}.\n"
+    if kit.no_cook_preferred:
+        block += "Prefer no-cook or microwave-only meals.\n"
+    if kit.prioritize_time:
+        block += ("Save time: favor batch-friendly meals (oven sheet-pan, one-pot, rice cooker) "
+                  "with few hands-on steps.\n")
+    block += (f"Batch-cook in about {kit.preferred_prep_sessions} session(s); keep any single "
+              f"meal under about {kit.max_single_session_minutes} minutes.\n")
+    return block
 
 
 def build_user_prompt(inputs: PlanInputs, priority: str = BUDGET) -> str:
@@ -82,14 +118,18 @@ def build_user_prompt(inputs: PlanInputs, priority: str = BUDGET) -> str:
         f"Goal: {inputs.goal.value}\n"
         f"Daily calorie target: {inputs.target_calories} kcal\n"
         f"Daily protein target: {inputs.target_protein} g\n"
+        f"Daily carb target: {inputs.target_carbs} g\n"
+        f"Daily fat target: {inputs.target_fat} g\n"
         f"The plan is ALL the food for the 7-day week, so every meal and serving together "
-        f"should total about {inputs.target_calories * 7:.0f} kcal and "
-        f"{inputs.target_protein * 7:.0f} g protein for the week.\n"
+        f"should total about {inputs.target_calories * 7:.0f} kcal, "
+        f"{inputs.target_protein * 7:.0f} g protein, {inputs.target_carbs * 7:.0f} g carbs, "
+        f"and {inputs.target_fat * 7:.0f} g fat for the week.\n"
         f"Weekly grocery budget: ${inputs.weekly_budget}\n"
         f"Max total cooking time for the week: {inputs.max_cook_minutes} minutes\n"
         f"Dietary pattern: {inputs.dietary_pattern}\n"
         f"Allergens to avoid: {avoid}\n"
         f"Ingredients already owned (still usable, no need to buy): {owned}\n"
+        f"{_kitchen_block(inputs)}"
         f"{directive}\n\n"
         "Return the meal plan."
     )
@@ -167,6 +207,42 @@ def _ask(client, catalog: list[Ingredient], user_prompt: str) -> GeneratedPlan:
     return plan
 
 
+def generate_one(
+    inputs: PlanInputs,
+    catalog: list[Ingredient],
+    slot: str,
+    client=None,
+    priority: str = BUDGET,
+    avoid_name: str | None = None,
+) -> Meal:
+    """Generate a single replacement meal for one slot (used by the 'regenerate' button).
+
+    The whole-plan macro correction runs afterward, so this only needs a reasonable single
+    recipe for the slot. Invalid ids are dropped and the slot is enforced.
+    """
+    client = client or genai.Client()
+    valid_ids = {i.id for i in catalog}
+    avoid = f" Make it different from the previous '{avoid_name}'." if avoid_name else ""
+    user_prompt = (
+        f"Generate exactly ONE {slot} recipe as a single meal-prep batch for the whole week "
+        f"(7 servings, one per day), with grams expressed as the whole-week amount. "
+        f"Goal: {inputs.goal.value}; daily targets {inputs.target_calories} kcal, "
+        f"{inputs.target_protein}g protein, {inputs.target_carbs}g carbs, "
+        f"{inputs.target_fat}g fat. Set slot to '{slot}'.{avoid} Return one meal."
+    )
+    response = client.models.generate_content(
+        model=MODEL, contents=user_prompt,
+        config={"system_instruction": build_system_prompt(catalog),
+                "response_mime_type": "application/json", "response_schema": Meal},
+    )
+    meal = response.parsed
+    if meal is None:
+        meal = Meal.model_validate_json(response.text)
+    meal.ingredients = [mi for mi in meal.ingredients if mi.ingredient_id in valid_ids]
+    meal.slot = slot
+    return meal
+
+
 def generate(
     inputs: PlanInputs,
     catalog: list[Ingredient],
@@ -186,8 +262,13 @@ def generate(
       - protein mode: in-band plans win (ranked by lowest cost); else the closest to the
         band — overshoots ranked by lowest protein, shortfalls by highest protein.
     """
-    # genai.Client() reads the API key from GEMINI_API_KEY (or GOOGLE_API_KEY).
-    client = client or genai.Client()
+    # genai.Client() reads the API key from GEMINI_API_KEY (or GOOGLE_API_KEY). If it can't be
+    # created (missing key, etc.), fall back to deterministic templates instead of crashing.
+    if client is None:
+        try:
+            client = genai.Client()
+        except Exception:
+            return fallback_plan(inputs, catalog)
     by_id = {i.id: i for i in catalog}
     valid_ids = set(by_id)
 
@@ -196,13 +277,19 @@ def generate(
     best_score: tuple[int, float] | None = None
 
     for _ in range(max_retries + 1):
-        plan = _ask(client, catalog, user_prompt)
-        # The model only supplies ids + grams; drop anything not in the catalog.
+        try:
+            plan = _ask(client, catalog, user_prompt)
+        except Exception:
+            break   # API error or unparseable JSON — stop and fall back below
+        # The model only supplies ids + grams; drop anything not in the catalog, drop
+        # non-positive amounts, and keep only known equipment tokens.
         dropped_ids: list[str] = []
         for meal in plan.meals:
             dropped_ids += [mi.ingredient_id for mi in meal.ingredients
                             if mi.ingredient_id not in valid_ids]
-            meal.ingredients = [mi for mi in meal.ingredients if mi.ingredient_id in valid_ids]
+            meal.ingredients = [mi for mi in meal.ingredients
+                                if mi.ingredient_id in valid_ids and mi.grams > 0]
+            meal.equipment_required = [e for e in meal.equipment_required if e in EQUIPMENT]
 
         cost = weekly_grocery_cost(plan, by_id, inputs.owned_ingredient_ids)
         protein = daily_protein_grams(plan, by_id)
@@ -242,6 +329,9 @@ def generate(
             fb += _dropped_feedback(dropped_ids)
         user_prompt = build_user_prompt(inputs, priority) + fb
 
-    # Target never perfectly met — return the best attempt; the results page honestly
-    # reports cost-vs-budget and protein-vs-target either way.
+    # Target never perfectly met — return the best attempt; the results page honestly reports
+    # cost-vs-budget and protein-vs-target either way. If nothing usable came back (every attempt
+    # failed or was empty), fall back to deterministic templates rather than returning nothing.
+    if best_plan is None or not any(m.ingredients for m in best_plan.meals):
+        return fallback_plan(inputs, catalog)
     return best_plan

@@ -1,3 +1,23 @@
+{% macro regen_form(kind) %}
+  <form id="regen-{{ kind }}" method="post" action="/regenerate">
+    <input type="hidden" name="plan_kind" value="{{ kind }}">
+    <input type="hidden" name="weekly_budget" value="{{ inputs.weekly_budget }}">
+    <input type="hidden" name="goal" value="{{ inputs.goal.value }}">
+    <input type="hidden" name="bodyweight_lb" value="{{ inputs.bodyweight_lb }}">
+    <input type="hidden" name="activity_level" value="{{ inputs.activity_level }}">
+    <input type="hidden" name="max_cook_minutes" value="{{ inputs.max_cook_minutes }}">
+    <input type="hidden" name="dietary_pattern" value="{{ inputs.dietary_pattern }}">
+    {% for a in inputs.avoid_allergens %}<input type="hidden" name="avoid_allergens" value="{{ a }}">{% endfor %}
+    {% for o in inputs.owned_ingredient_ids %}<input type="hidden" name="owned_ingredient_ids" value="{{ o }}">{% endfor %}
+    <input type="hidden" name="target_calories" value="{{ inputs.target_calories }}">
+    <input type="hidden" name="target_protein" value="{{ inputs.target_protein }}">
+    <input type="hidden" name="target_carbs" value="{{ inputs.target_carbs }}">
+    <input type="hidden" name="target_fat" value="{{ inputs.target_fat }}">
+    <input type="hidden" name="budget_base_json" value="{{ budget_base_json }}">
+    <input type="hidden" name="protein_base_json" value="{{ protein_base_json }}">
+    <input type="hidden" name="kitchen_json" value="{{ kitchen_json }}">
+  </form>
+{% endmacro %}
 <!doctype html>
 <html>
 <head>
@@ -8,19 +28,44 @@
 </head>
 <body>
 <main>
-  <h1>Your week of meals</h1>
-  <p class="note">Two options, so you can choose how to handle the budget-vs-protein tradeoff.</p>
+  <h1>Your weekly meal plan</h1>
+  <p class="note">Each meal is batch-cooked for the week (7 servings). Each day you eat one
+     serving of every meal below. Two options, so you can choose how to handle the
+     budget-vs-protein tradeoff.</p>
 
   {% for p in plans %}
   <section class="planblock">
     <h2>{{ p.label }}</h2>
     <p class="blurb">{{ p.blurb }}</p>
+    {{ regen_form(p.kind) }}
 
     <section class="summary">
-      <p><strong>This week's groceries:</strong> ${{ "%.2f"|format(p.data.total_cost) }}
-         / ${{ "%.0f"|format(p.data.weekly_budget) }} budget
-         {% if p.data.within_budget %}<span class="ok">(within budget)</span>
-         {% else %}<span class="over">(over budget)</span>{% endif %}</p>
+      {% set v = p.validation %}
+      {% if v.within_budget %}
+      <p class="guarantee"><strong class="ok">Budget estimated at
+         ${{ "%.2f"|format(v.total_cost) }} of your ${{ "%.0f"|format(v.weekly_budget) }}.</strong>
+         ${{ "%.2f"|format(v.budget_remaining) }} to spare.</p>
+      {% else %}
+      <p class="guarantee"><strong class="over">This plan runs ${{ "%.2f"|format(v.over_budget_by) }}
+         over your ${{ "%.0f"|format(v.weekly_budget) }} budget</strong>
+         (estimated ${{ "%.2f"|format(v.total_cost) }}).</p>
+      {% endif %}
+      <ul class="metrics">
+        <li>${{ "%.2f"|format(v.cost_per_day) }} / day</li>
+        <li>${{ "%.2f"|format(v.cost_per_meal) }} / meal</li>
+        {% if v.cost_per_g_protein is not none %}
+        <li>${{ "%.3f"|format(v.cost_per_g_protein) }} / g protein</li>{% endif %}
+        {% if v.pantry_savings > 0 %}
+        <li class="ok">saved ${{ "%.2f"|format(v.pantry_savings) }} using items you own</li>{% endif %}
+      </ul>
+      {% if v.errors %}<p class="over"><strong>⚠ {{ v.errors|join(" ") }}</strong></p>{% endif %}
+      {% if v.warnings %}<p class="note">⚠ {{ v.warnings|join(" · ") }}</p>{% endif %}
+      {% if v.suggested_fixes %}
+      <p class="note">To improve this plan: {{ v.suggested_fixes|join(" · ") }}.</p>
+      {% endif %}
+      <p class="prep"><strong>Prep:</strong> about {{ v.total_prep_minutes }} min total — cook it
+         all at once{% if v.prep_sessions > 1 %}, or split into up to {{ v.prep_sessions }} batches (longest ≈{{ v.largest_session_minutes }} min){% endif %}.
+         <span class="note">Make the batches whenever suits your week.</span></p>
       {% if p.data.pantry_total > 0 %}
       <p><strong>One-time pantry stock-up:</strong> ${{ "%.2f"|format(p.data.pantry_total) }}
          <span class="note">— seasonings &amp; oil that last for months, not counted in the weekly budget</span></p>
@@ -28,17 +73,28 @@
       <p><strong>Daily macros:</strong>
          {{ p.data.daily_macros.calories }} kcal (target {{ p.data.targets.calories }}),
          {{ p.data.daily_macros.protein }}g protein (target {{ p.data.targets.protein }}),
-         {{ p.data.daily_macros.carbs }}g carbs, {{ p.data.daily_macros.fat }}g fat</p>
+         {{ p.data.daily_macros.carbs }}g carbs (target {{ p.data.targets.carbs }}),
+         {{ p.data.daily_macros.fat }}g fat (target {{ p.data.targets.fat }})</p>
       <p class="targetstatus">
+         Calorie target: {% if p.data.calories_met %}<span class="ok">met</span>{% else %}<span class="over">not met</span>{% endif %} ·
          Protein target: {% if p.data.protein_met %}<span class="ok">met</span>{% else %}<span class="over">not met</span>{% endif %} ·
-         Calorie target: {% if p.data.calories_met %}<span class="ok">met</span>{% else %}<span class="over">not met</span>{% endif %}
+         Carb target: {% if p.data.carbs_met %}<span class="ok">met</span>{% else %}<span class="over">not met</span>{% endif %} ·
+         Fat target: {% if p.data.fat_met %}<span class="ok">met</span>{% else %}<span class="over">not met</span>{% endif %}
          {% if p.data.target_note %}<span class="note">— {{ p.data.target_note }}</span>{% endif %}</p>
     </section>
 
     {% for meal in p.data.meals %}
       <article class="meal">
-        <h3>{{ meal.name }}</h3>
-        <p class="meta">{{ meal.cook_time_minutes }} min · {{ meal.servings }} servings</p>
+        <h3><span class="slot">{{ meal.slot|capitalize }}</span> · {{ meal.name }}
+          {% if meal.slot != "snack" %}
+          <button type="submit" form="regen-{{ p.kind }}" name="slot" value="{{ meal.slot }}"
+                  class="regen">↻ Regenerate</button>
+          {% endif %}</h3>
+        <p class="meta">Batch: makes {{ meal.servings }} servings (one a day) · {{ meal.cook_time_minutes }} min
+          {% if meal.pan_loads > 1 %}· cook in {{ meal.pan_loads }} pan-loads{% endif %}
+          {% if meal.equipment_required %}<span class="chip">{{ meal.equipment_required|join(', ') }}</span>
+          {% else %}<span class="chip">no-cook</span>{% endif %}</p>
+        <p class="note">Amounts below are per serving, with the whole 7-serving batch in parentheses.</p>
         <p class="per-serving"><strong>Per serving:</strong>
            {{ meal.macros_per_serving.calories }} kcal ·
            {{ meal.macros_per_serving.protein }}g protein ·
@@ -46,14 +102,19 @@
            {{ meal.macros_per_serving.fat }}g fat</p>
         <ul>
           {% for ing in meal.ingredients %}
-            <li>{{ ing.name }} — {{ ing.grams_per_serving }} g/serving ({{ ing.grams }} g total)
+            <li>{{ ing.name }} — {{ ing.amount_per_serving }}/serving ({{ ing.amount_total }} total)
                 <span class="note">· {{ ing.macros_per_serving.calories }} kcal ·
                 {{ ing.macros_per_serving.protein }}g protein ·
                 {{ ing.macros_per_serving.carbs }}g carbs ·
                 {{ ing.macros_per_serving.fat }}g fat per serving</span></li>
           {% endfor %}
         </ul>
-        <p>{{ meal.instructions }}</p>
+        <h4>Recipe</h4>
+        <ol class="recipe">
+          {% for step in meal.instructions.split('\n') %}{% if step.strip() %}
+            <li>{{ step.strip().lstrip('0123456789.) ') }}</li>
+          {% endif %}{% endfor %}
+        </ol>
       </article>
     {% endfor %}
 
@@ -63,7 +124,7 @@
       <tbody>
         {% for g in p.data.grocery_list %}
           <tr><td>{{ g.name }}</td><td>{{ g.packages }} × {{ g.package_label }}</td>
-              <td>{{ g.grams }} g</td><td>${{ "%.2f"|format(g.cost) }}</td></tr>
+              <td>{{ g.uses_display }}</td><td>${{ "%.2f"|format(g.cost) }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -83,19 +144,58 @@
       </tbody>
     </table>
     {% endif %}
+
+    {% if p.data.owned_list %}
+    <h4>You already have — used this week (not added to your cost)</h4>
+    <table>
+      <thead><tr><th>Item</th><th>Used this week</th></tr></thead>
+      <tbody>
+        {% for g in p.data.owned_list %}
+          <tr><td>{{ g.name }}</td><td>{{ g.uses_display }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
   </section>
   {% endfor %}
 
   <p class="note">Cost and macros are estimates computed from a fixed ingredient catalog.</p>
 
   <section class="cta">
-    <h2>Want a fresh plan every week?</h2>
-    <form method="post" action="/signup">
-      <label>Drop your email and we'll send new plans
-        <input type="email" name="email" placeholder="you@school.edu" required>
+    {% if logged_in %}
+    <h2>Your week is handled.</h2>
+    <p>Saved plans live in your <a href="/account">account</a> — track meals and repair your week there.</p>
+    {% else %}
+    <h2>Save this week to your account</h2>
+    <p class="note">Keep this plan, track what you eat, and repair it when life changes.</p>
+    <form method="post" action="/register">
+      <input type="hidden" name="weekly_budget" value="{{ inputs.weekly_budget }}">
+      <input type="hidden" name="goal" value="{{ inputs.goal.value }}">
+      <input type="hidden" name="bodyweight_lb" value="{{ inputs.bodyweight_lb }}">
+      <input type="hidden" name="activity_level" value="{{ inputs.activity_level }}">
+      <input type="hidden" name="max_cook_minutes" value="{{ inputs.max_cook_minutes }}">
+      <input type="hidden" name="dietary_pattern" value="{{ inputs.dietary_pattern }}">
+      {% for a in inputs.avoid_allergens %}<input type="hidden" name="avoid_allergens" value="{{ a }}">{% endfor %}
+      {% for o in inputs.owned_ingredient_ids %}<input type="hidden" name="owned_ingredient_ids" value="{{ o }}">{% endfor %}
+      <input type="hidden" name="target_calories" value="{{ inputs.target_calories }}">
+      <input type="hidden" name="target_protein" value="{{ inputs.target_protein }}">
+      <input type="hidden" name="target_carbs" value="{{ inputs.target_carbs }}">
+      <input type="hidden" name="target_fat" value="{{ inputs.target_fat }}">
+      <input type="hidden" name="budget_base_json" value="{{ budget_base_json }}">
+      <input type="hidden" name="protein_base_json" value="{{ protein_base_json }}">
+      <input type="hidden" name="kitchen_json" value="{{ kitchen_json }}">
+      <label>Which plan to save?
+        <select name="plan_kind">
+          <option value="budget">Plan A — fits your budget</option>
+          <option value="protein">Plan B — hits your protein</option>
+        </select>
       </label>
-      <button type="submit">Keep me posted</button>
+      <label>Email <input type="email" name="email" placeholder="you@school.edu" required></label>
+      <label>Password <input type="password" name="password" minlength="8" required></label>
+      <button type="submit">Create account &amp; save</button>
     </form>
+    <p class="note">Already have an account? <a href="/login">Log in</a>.</p>
+    {% endif %}
   </section>
 
   <p><a href="/">Start over</a></p>

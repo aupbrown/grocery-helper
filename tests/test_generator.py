@@ -1,7 +1,13 @@
+from pathlib import Path
+
 from app.models import (
-    Goal, Ingredient, Meal, MealIngredient, GeneratedPlan, PlanInputs,
+    Goal, Ingredient, KitchenProfile, Meal, MealIngredient, GeneratedPlan, PlanInputs,
 )
-from app.generator import build_system_prompt, build_user_prompt, generate
+from app.catalog import load_catalog
+from app.generator import build_system_prompt, build_user_prompt, generate, generate_one
+
+# The full catalog, so fallback templates (which need real ingredients) can match.
+FULL = load_catalog(Path(__file__).resolve().parent.parent / "data" / "ingredients.json")
 
 # 50g packages priced at half the old per-100g, so whole-package cost equals the old
 # per-gram cost for these (50g-multiple) test amounts — keeping the cost math readable.
@@ -15,7 +21,8 @@ CATALOG = [
 ]
 
 INPUTS = PlanInputs(weekly_budget=35, goal=Goal.bulk, bodyweight_lb=180,
-                    max_cook_minutes=90, target_calories=3050, target_protein=180)
+                    max_cook_minutes=90, target_calories=3050, target_protein=180,
+                    target_carbs=430, target_fat=68)
 
 
 def _plan(ingredient_id, grams):
@@ -27,7 +34,8 @@ def _plan(ingredient_id, grams):
 
 def _inputs(budget=35, target_protein=180):
     return PlanInputs(weekly_budget=budget, goal=Goal.bulk, bodyweight_lb=180,
-                      max_cook_minutes=90, target_calories=3050, target_protein=target_protein)
+                      max_cook_minutes=90, target_calories=3050, target_protein=target_protein,
+                      target_carbs=430, target_fat=68)
 
 
 # --- Stub mirroring google-genai: client.models.generate_content(...). Returns
@@ -57,6 +65,27 @@ class _Client:
         self.models = _Models(plans)
 
 
+class _RaisingModels:
+    def __init__(self):
+        self.call_count = 0
+
+    def generate_content(self, **kwargs):
+        self.call_count += 1
+        raise ValueError("simulated API / invalid-JSON failure")
+
+
+class _RaisingClient:
+    def __init__(self):
+        self.models = _RaisingModels()
+
+
+def _full_inputs(**kw):
+    base = dict(weekly_budget=50, goal=Goal.maintain, bodyweight_lb=180, max_cook_minutes=180,
+                target_calories=2400, target_protein=150, target_carbs=250, target_fat=70)
+    base.update(kw)
+    return PlanInputs(**base)
+
+
 def test_system_prompt_lists_ids_prices_and_constrains():
     sp = build_system_prompt(CATALOG)
     assert "rice_white" in sp
@@ -80,6 +109,74 @@ def test_user_prompt_states_weekly_totals():
     p = build_user_prompt(INPUTS)
     assert "21350" in p   # 3050 kcal * 7 days
     assert "1260" in p    # 180 g protein * 7 days
+
+
+def test_user_prompt_includes_carb_and_fat_targets():
+    p = build_user_prompt(INPUTS)
+    assert "430" in p     # daily carb target
+    assert "68" in p      # daily fat target
+
+
+def test_system_prompt_requires_detailed_recipes_and_listed_seasonings():
+    sp = build_system_prompt(CATALOG).lower()
+    assert "step" in sp                       # numbered/step-by-step instructions
+    assert "every seasoning" in sp or "list every" in sp   # seasonings must be listed
+
+
+def test_system_prompt_wants_method_only_steps_and_batch_cooking():
+    sp = build_system_prompt(CATALOG).lower()
+    assert "method-only" in sp          # steps are method, amounts live in the ingredient list
+    assert "no grams" in sp             # quantities are forbidden in the steps
+    assert "pan-loads" in sp            # tell the cook to work in batches for a big weekly batch
+    assert "realistic" in sp            # portion-realism guidance present
+
+
+def test_system_prompt_asks_for_weekly_slots():
+    sp = build_system_prompt(CATALOG).lower()
+    assert "breakfast" in sp and "lunch" in sp and "dinner" in sp
+    assert "snack" in sp
+    assert "slot" in sp
+
+
+def test_system_prompt_declares_equipment_field():
+    sp = build_system_prompt(CATALOG)
+    assert "equipment_required" in sp
+    assert "microwave" in sp and "oven" in sp
+
+
+def test_user_prompt_includes_kitchen_equipment():
+    assert "Kitchen equipment available" in build_user_prompt(INPUTS)
+
+
+def test_user_prompt_reflects_no_cook_and_time_preferences():
+    inp = INPUTS.model_copy(update={"kitchen": KitchenProfile(
+        stove=False, oven=False, no_cook_preferred=True, prioritize_time=True)})
+    p = build_user_prompt(inp).lower()
+    assert "no-cook" in p
+    assert "save time" in p
+
+
+def test_equipment_tokens_are_normalized():
+    raw = GeneratedPlan(meals=[
+        Meal(name="Bowl", cook_time_minutes=20, servings=2, instructions="...",
+             equipment_required=["stove", "blowtorch", "OVEN"],
+             ingredients=[MealIngredient(ingredient_id="rice_white", grams=100)])])
+    result = generate(_inputs(budget=35), CATALOG, client=_Client(raw), priority="budget")
+    assert result.meals[0].equipment_required == ["stove"]   # unknown/wrong-case dropped
+
+
+def test_generation_failure_falls_back_to_templates():
+    plan = generate(_full_inputs(), FULL, client=_RaisingClient(), max_retries=2)
+    assert plan.meals and all(m.ingredients for m in plan.meals)
+
+
+def test_fallback_respects_microwave_only_kitchen():
+    inp = _full_inputs(kitchen=KitchenProfile(microwave=True, stove=False, oven=False))
+    plan = generate(inp, FULL, client=_RaisingClient(), max_retries=1)
+    assert plan.meals
+    for m in plan.meals:
+        assert "stove" not in m.equipment_required
+        assert "oven" not in m.equipment_required
 
 
 def test_generate_feeds_back_dropped_ids():
@@ -107,6 +204,18 @@ def test_generate_drops_invalid_ingredient_ids():
     assert ids == ["rice_white"]
     assert client.models.last_kwargs["model"] == "gemini-3.1-flash-lite"
     assert client.models.last_kwargs["config"]["response_schema"] is GeneratedPlan
+
+
+def test_generate_one_returns_single_slot_meal():
+    meal = Meal(name="Oatmeal bowl", slot="breakfast", cook_time_minutes=10, servings=7,
+                instructions="1. Cook oats.", ingredients=[
+                    MealIngredient(ingredient_id="rice_white", grams=700),
+                    MealIngredient(ingredient_id="not_in_catalog", grams=50)])
+    client = _Client(meal)
+    result = generate_one(INPUTS, CATALOG, "breakfast", client=client)
+    assert result.slot == "breakfast"
+    assert [mi.ingredient_id for mi in result.ingredients] == ["rice_white"]   # invalid dropped
+    assert client.models.last_kwargs["config"]["response_schema"] is Meal
 
 
 def test_budget_priority_retries_until_under_budget():

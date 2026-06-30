@@ -43,6 +43,7 @@ def test_plan_inputs_defaults():
     pi = PlanInputs(
         weekly_budget=40, goal=Goal.cut, bodyweight_lb=170,
         max_cook_minutes=120, target_calories=2200, target_protein=170,
+        target_carbs=205, target_fat=73,
     )
     assert pi.activity_level == "light"
     assert pi.dietary_pattern == "none"

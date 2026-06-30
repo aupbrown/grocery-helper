@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your kitchen</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<main>
+  <p class="nav"><a href="/account">Account</a> · <a href="/pantry">Pantry</a> · <a href="/">Plan a week</a></p>
+  <h1>Your kitchen</h1>
+  <p class="note">Saved to your account and used to filter every plan you generate.</p>
+  <form method="post" action="/settings">
+    {% include "_kitchen_fields.html" %}
+    <button type="submit">Save kitchen</button>
+  </form>
+</main>
+</body>
+</html>

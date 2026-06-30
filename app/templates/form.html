@@ -8,6 +8,7 @@
 </head>
 <body>
 <main>
+  <p class="nav">{% if logged_in %}<a href="/account">Account</a> · <a href="/settings">Kitchen</a> · <a href="/pantry">Pantry</a>{% else %}<a href="/login">Log in</a>{% endif %}</p>
   <h1>Plan a week of affordable, macro-friendly, time saving meals</h1>
   <form method="post" action="/targets">
     <label>Weekly budget ($)
@@ -38,6 +39,8 @@
       <input type="number" name="max_cook_minutes" min="15" step="15" value="120" required>
     </label>
 
+    {% include "_kitchen_fields.html" %}
+
     <label>Dietary pattern
       <select name="dietary_pattern">
         <option value="none" selected>No restriction</option>
@@ -53,19 +56,19 @@
       {% endfor %}
     </fieldset>
 
-    <label>Ingredients you already own (optional)
-      <select name="owned_ingredient_ids" multiple size="6">
-        {% for i in catalog %}{% if not i.pantry_staple %}
-          <option value="{{ i.id }}">{{ i.name }}</option>
-        {% endif %}{% endfor %}
-      </select>
-    </label>
+    <fieldset>
+      <legend>Ingredients you already own (optional)</legend>
+      <p class="note">Check anything you already have — we'll leave it off your grocery cost.</p>
+      {% for i in catalog %}{% if not i.pantry_staple %}
+        <label class="inline"><input type="checkbox" name="owned_ingredient_ids" value="{{ i.id }}" {% if i.id in owned_prechecked %}checked{% endif %}> {{ i.name }}</label>
+      {% endif %}{% endfor %}
+    </fieldset>
 
     <fieldset>
       <legend>Seasonings &amp; pantry staples you already have</legend>
       <p class="note">Check what's already in your kitchen — we won't add it to your stock-up cost.</p>
       {% for i in catalog %}{% if i.pantry_staple %}
-        <label class="inline"><input type="checkbox" name="owned_ingredient_ids" value="{{ i.id }}"> {{ i.name }}</label>
+        <label class="inline"><input type="checkbox" name="owned_ingredient_ids" value="{{ i.id }}" {% if i.id in owned_prechecked %}checked{% endif %}> {{ i.name }}</label>
       {% endif %}{% endfor %}
     </fieldset>
 

@@ -1,0 +1,332 @@
+[
+  {
+    "name": "Soft scrambled eggs with cheddar & spinach",
+    "slot": "breakfast",
+    "equipment": ["stove"],
+    "prep_minutes": 10,
+    "tags": ["vegetarian", "high_protein", "balanced", "quick"],
+    "flavor_note": "Low-and-slow eggs stay custardy; off-heat cheese keeps them silky.",
+    "per_serving": {"eggs": 150, "cheddar": 28, "spinach": 30, "butter": 7, "salt": 1, "black_pepper": 0.5},
+    "instructions": "1. Whisk the eggs with salt and pepper until fully blended.\n2. Melt the butter in a nonstick pan over medium-low heat until foaming but not browning.\n3. Add the eggs and stir slowly and constantly, pushing them into soft folds as they set.\n4. When still glossy and a touch underdone, drop in the spinach to wilt.\n5. Off the heat, fold in the cheddar so it melts from residual warmth. Serve creamy, not dry."
+  },
+  {
+    "name": "Peanut butter banana protein oats",
+    "slot": "breakfast",
+    "equipment": ["microwave"],
+    "prep_minutes": 6,
+    "tags": ["vegetarian", "high_protein", "carb_forward", "bulk", "microwave"],
+    "flavor_note": "Cinnamon and a swirl of peanut butter make plain oats taste like dessert.",
+    "per_serving": {"oats": 80, "milk_2pct": 240, "peanut_butter": 16, "banana": 60, "cinnamon": 1},
+    "instructions": "1. Combine the oats, milk, and cinnamon in a deep bowl and microwave, stopping to stir once, until thick and creamy.\n2. Stir in the peanut butter until it melts into a glossy ribbon.\n3. Top with sliced banana and let sit a minute to thicken before eating."
+  },
+  {
+    "name": "Overnight oats with peanut butter & berries",
+    "slot": "breakfast",
+    "equipment": [],
+    "prep_minutes": 5,
+    "tags": ["vegan", "cheap", "no_cook", "carb_forward"],
+    "flavor_note": "Mashed banana sweetens without sugar; an overnight rest turns oats spoonably soft.",
+    "per_serving": {"oats": 80, "peanut_butter": 24, "banana": 90, "cinnamon": 1, "blueberries": 40},
+    "instructions": "1. Mash the banana in a jar until nearly smooth.\n2. Stir in the oats, peanut butter, cinnamon, and a splash of water until evenly moistened.\n3. Cover and chill overnight so the oats soften.\n4. Top with blueberries and eat cold."
+  },
+  {
+    "name": "Greek yogurt granola bowl with honey",
+    "slot": "breakfast",
+    "equipment": [],
+    "prep_minutes": 4,
+    "tags": ["vegetarian", "high_protein", "no_cook", "cut"],
+    "flavor_note": "Add the granola last so it stays crunchy against the cold, tangy yogurt.",
+    "per_serving": {"greek_yogurt": 227, "granola": 40, "blueberries": 40, "honey": 8},
+    "instructions": "1. Spoon the yogurt into a bowl and drizzle the honey over it.\n2. Scatter the blueberries across the top.\n3. Add the granola just before eating so it stays crisp."
+  },
+  {
+    "name": "Southwest egg & black bean scramble",
+    "slot": "breakfast",
+    "equipment": ["stove"],
+    "prep_minutes": 12,
+    "tags": ["vegetarian", "high_protein", "balanced"],
+    "flavor_note": "Toasting cumin in oil before the eggs go in deepens the whole dish.",
+    "per_serving": {"eggs": 150, "black_beans": 80, "cheddar": 25, "salsa": 30, "cumin": 1, "salt": 1, "olive_oil": 4},
+    "instructions": "1. Warm the oil over medium heat and add the drained black beans and cumin; cook until the beans dry out and start to sizzle.\n2. Pour in the salted, whisked eggs and stir gently into soft curds.\n3. Off the heat, fold in the cheddar to melt.\n4. Spoon the salsa over the top for brightness."
+  },
+  {
+    "name": "Breakfast burrito with eggs, beans & cheese",
+    "slot": "breakfast",
+    "equipment": ["stove"],
+    "prep_minutes": 15,
+    "tags": ["vegetarian", "high_protein", "carb_forward", "bulk"],
+    "flavor_note": "Searing the rolled burrito seam-side down glues it shut and adds toasty crunch.",
+    "per_serving": {"tortillas": 90, "eggs": 100, "cheddar": 25, "black_beans": 60, "salsa": 30, "hot_sauce": 5},
+    "instructions": "1. Scramble the eggs softly and set aside.\n2. Warm the tortillas in a dry pan until pliable and lightly toasted.\n3. Warm the beans until steaming.\n4. Fill each tortilla with eggs, beans, cheddar, salsa, and hot sauce; roll up tight.\n5. Return to the pan seam-side down and sear until golden to seal."
+  },
+  {
+    "name": "Golden tofu scramble",
+    "slot": "breakfast",
+    "equipment": ["stove"],
+    "prep_minutes": 15,
+    "tags": ["vegan", "high_protein", "balanced"],
+    "flavor_note": "Paprika and cumin give crumbled tofu a savory, almost eggy color and depth.",
+    "per_serving": {"tofu": 150, "spinach": 30, "onion": 30, "garlic": 4, "cumin": 1, "paprika": 1, "salt": 1, "olive_oil": 5, "hot_sauce": 5},
+    "instructions": "1. Press the tofu to squeeze out water, then crumble it into rough curds.\n2. Soften the diced onion and garlic in the oil over medium heat.\n3. Add the tofu with cumin, paprika, and salt; cook undisturbed to let it brown, then toss, until golden and dry.\n4. Stir in the spinach to wilt and finish with hot sauce."
+  },
+  {
+    "name": "Tuna salad sandwich with lemon",
+    "slot": "lunch",
+    "equipment": [],
+    "prep_minutes": 6,
+    "tags": ["high_protein", "no_cook", "cheap"],
+    "flavor_note": "Mustard and lemon stand in for mayo, keeping it lean and bright.",
+    "per_serving": {"bread_ww": 56, "canned_tuna": 142, "spinach": 20, "mustard": 8, "lemon": 8, "black_pepper": 0.5},
+    "instructions": "1. Drain the tuna well and flake it with a fork.\n2. Mix in the mustard, a squeeze of lemon, and pepper.\n3. Pile onto the bread with the spinach, press gently, and halve."
+  },
+  {
+    "name": "Chicken burrito bowl with lime",
+    "slot": "lunch",
+    "equipment": ["stove"],
+    "prep_minutes": 25,
+    "tags": ["high_protein", "balanced", "meal_prep"],
+    "flavor_note": "Resting the seared chicken before slicing keeps every bite juicy.",
+    "per_serving": {"chicken_breast": 140, "rice_white": 180, "black_beans": 80, "corn_frozen": 40, "salsa": 40, "lime": 8, "cumin": 1, "salt": 1, "olive_oil": 5},
+    "instructions": "1. Season the chicken with cumin and salt.\n2. Sear in the oil over medium-high heat, undisturbed, until deeply browned, then flip and cook through; rest, then slice.\n3. Warm the beans and corn together.\n4. Build over the rice with salsa and a squeeze of lime."
+  },
+  {
+    "name": "Loaded baked potato with cheddar & broccoli",
+    "slot": "lunch",
+    "equipment": ["microwave"],
+    "prep_minutes": 12,
+    "tags": ["vegetarian", "microwave", "cheap"],
+    "flavor_note": "A dollop of Greek yogurt does the job of sour cream with more protein.",
+    "per_serving": {"potato": 250, "cheddar": 40, "broccoli": 80, "greek_yogurt": 30, "salt": 1, "black_pepper": 0.5},
+    "instructions": "1. Pierce the potato all over and microwave until a knife slides in easily.\n2. Steam the broccoli until bright green and just tender.\n3. Split the potato, fluff the inside, and season with salt and pepper.\n4. Top with cheddar to melt, then the broccoli and a spoon of yogurt."
+  },
+  {
+    "name": "Turkey, cheese & tomato wrap",
+    "slot": "lunch",
+    "equipment": [],
+    "prep_minutes": 7,
+    "tags": ["high_protein", "no_cook", "quick"],
+    "flavor_note": "A thin swipe of mustard wakes up an otherwise plain deli wrap.",
+    "per_serving": {"tortillas": 90, "deli_turkey": 85, "cheddar": 25, "spinach": 20, "mustard": 8, "tomato": 40},
+    "instructions": "1. Spread the mustard across the tortilla.\n2. Layer the turkey, cheddar, sliced tomato, and spinach down the center.\n3. Fold in the sides, roll tight, and slice on the diagonal."
+  },
+  {
+    "name": "Chickpea curry with rice",
+    "slot": "lunch",
+    "equipment": ["stove"],
+    "prep_minutes": 22,
+    "tags": ["vegan", "high_protein", "carb_forward", "cheap"],
+    "flavor_note": "Blooming the curry powder in oil first is the difference between flat and fragrant.",
+    "per_serving": {"chickpeas": 150, "rice_white": 160, "onion": 40, "garlic": 5, "tomato_sauce": 60, "curry_powder": 3, "cumin": 1, "olive_oil": 6, "salt": 1},
+    "instructions": "1. Soften the onion and garlic in the oil, then add the curry powder and cumin and stir until fragrant.\n2. Pour in the tomato sauce and the drained chickpeas; simmer until thick and glossy.\n3. Season with salt and serve over the rice."
+  },
+  {
+    "name": "Mediterranean quinoa & chickpea bowl",
+    "slot": "lunch",
+    "equipment": ["stove"],
+    "prep_minutes": 20,
+    "tags": ["vegetarian", "balanced", "meal_prep"],
+    "flavor_note": "Dressing the quinoa while warm lets it drink up the lemon and oregano.",
+    "per_serving": {"quinoa": 180, "chickpeas": 100, "tomato": 60, "spinach": 30, "feta": 25, "olive_oil": 6, "lemon": 10, "oregano": 1, "salt": 1},
+    "instructions": "1. Toss the warm quinoa with the olive oil, lemon, oregano, and salt.\n2. Fold in the chickpeas, diced tomato, and spinach so the greens lightly wilt.\n3. Crumble the feta over the top just before serving."
+  },
+  {
+    "name": "Microwave burrito rice bowl",
+    "slot": "lunch",
+    "equipment": ["microwave"],
+    "prep_minutes": 8,
+    "tags": ["vegetarian", "microwave", "dorm", "cheap"],
+    "flavor_note": "A splash of salsa stirred through beats plain rice and beans every time.",
+    "per_serving": {"rice_white": 200, "black_beans": 120, "cheddar": 30, "corn_frozen": 40, "salsa": 40, "hot_sauce": 5},
+    "instructions": "1. Combine the rice, drained beans, and corn in a bowl and microwave until steaming.\n2. Stir the salsa through.\n3. Top with cheddar and microwave briefly to melt, then finish with hot sauce."
+  },
+  {
+    "name": "Sheet-pan chicken, potato & broccoli",
+    "slot": "dinner",
+    "equipment": ["oven"],
+    "prep_minutes": 40,
+    "tags": ["high_protein", "oven", "meal_prep", "bulk"],
+    "flavor_note": "Giving the potatoes a head start means everything finishes crisp at once.",
+    "per_serving": {"chicken_breast": 170, "potato": 200, "broccoli": 100, "olive_oil": 10, "paprika": 2, "garlic": 4, "salt": 2, "black_pepper": 1},
+    "instructions": "1. Heat the oven to 425F.\n2. Toss the cubed potato with oil, paprika, garlic, and half the salt; roast until the edges begin to color.\n3. Add the oil-rubbed, salted-and-peppered chicken and the broccoli to the pan.\n4. Roast until the chicken reaches 165F and the broccoli chars at the tips.\n5. Rest the chicken a few minutes before slicing."
+  },
+  {
+    "name": "Garlic-seared chicken with rice & broccoli",
+    "slot": "dinner",
+    "equipment": ["stove"],
+    "prep_minutes": 25,
+    "tags": ["high_protein", "meal_prep"],
+    "flavor_note": "A quick garlic-soy pan sauce from the browned bits turns a plain fillet into a meal.",
+    "per_serving": {"chicken_breast": 170, "rice_white": 200, "broccoli": 100, "garlic": 5, "olive_oil": 8, "soy_sauce": 8, "salt": 1},
+    "instructions": "1. Pat the chicken dry and season with salt.\n2. Sear in the oil over medium-high heat, undisturbed, until deep golden; flip and cook to 165F, then rest.\n3. Lower the heat, add the garlic to the pan to bloom, then the soy sauce and a splash of water, scraping up the browned bits into a sauce.\n4. Slice the chicken and serve over rice with steamed broccoli, sauce spooned over."
+  },
+  {
+    "name": "Beef & bean chili",
+    "slot": "dinner",
+    "equipment": ["stove"],
+    "prep_minutes": 30,
+    "tags": ["high_protein", "meal_prep", "bulk"],
+    "flavor_note": "Let the beef build a brown crust before stirring — that fond is the flavor.",
+    "per_serving": {"ground_beef_90": 113, "black_beans": 100, "tomato_sauce": 100, "onion": 40, "garlic": 5, "chili_powder": 3, "cumin": 1, "salt": 1},
+    "instructions": "1. Brown the beef hard with the onion, working in batches so it sears rather than steams.\n2. Stir in the garlic, chili powder, and cumin and toast until fragrant.\n3. Add the tomato sauce and drained beans and simmer to let the flavors meld.\n4. Season with salt to taste."
+  },
+  {
+    "name": "Spaghetti with quick meat sauce",
+    "slot": "dinner",
+    "equipment": ["stove"],
+    "prep_minutes": 25,
+    "tags": ["high_protein", "meal_prep", "bulk"],
+    "flavor_note": "A spoon of starchy pasta water pulls the sauce together and helps it cling.",
+    "per_serving": {"pasta_ww": 140, "ground_beef_90": 100, "tomato_sauce": 120, "onion": 40, "garlic": 5, "olive_oil": 5, "oregano": 1, "salt": 1, "parmesan": 10},
+    "instructions": "1. Brown the beef with the onion in the oil until well caramelized.\n2. Add the garlic and oregano briefly, then the tomato sauce, and simmer.\n3. Meanwhile boil the pasta in well-salted water until just shy of tender.\n4. Toss the pasta into the sauce with a splash of pasta water; finish with parmesan."
+  },
+  {
+    "name": "Crispy tofu stir-fry with vegetables & rice",
+    "slot": "dinner",
+    "equipment": ["stove"],
+    "prep_minutes": 25,
+    "tags": ["vegan", "high_protein", "balanced"],
+    "flavor_note": "Crisp the tofu first and add it back at the end so it never goes soggy.",
+    "per_serving": {"tofu": 150, "rice_white": 180, "broccoli": 80, "bell_pepper": 50, "carrots": 40, "soy_sauce": 12, "garlic": 5, "ground_ginger": 1, "olive_oil": 6, "sriracha": 5},
+    "instructions": "1. Press and cube the tofu, then pan-fry in hot oil until crisp on several sides; remove.\n2. Stir-fry the carrots, pepper, and broccoli over high heat until crisp-tender.\n3. Return the tofu with the garlic, ginger, soy sauce, and sriracha and toss to glaze.\n4. Serve over the rice."
+  },
+  {
+    "name": "Roasted salmon with lemon, rice & broccoli",
+    "slot": "dinner",
+    "equipment": ["oven"],
+    "prep_minutes": 20,
+    "tags": ["high_protein", "oven", "balanced"],
+    "flavor_note": "Pull the salmon at just-flaking for a buttery texture, not a dry one.",
+    "per_serving": {"salmon_fillet": 140, "rice_white": 180, "broccoli": 100, "lemon": 10, "olive_oil": 6, "garlic": 4, "salt": 1, "black_pepper": 0.5},
+    "instructions": "1. Heat the oven to 400F.\n2. Pat the salmon dry and rub with oil, salt, and pepper.\n3. Roast until it flakes easily and reaches about 125F in the center.\n4. Squeeze lemon over the top and serve with rice and garlic-tossed broccoli."
+  },
+  {
+    "name": "Honey-garlic pork chops with sweet potato",
+    "slot": "dinner",
+    "equipment": ["stove", "oven"],
+    "prep_minutes": 35,
+    "tags": ["high_protein", "balanced"],
+    "flavor_note": "The pan glaze of honey, soy, and garlic caramelizes onto the seared crust.",
+    "per_serving": {"pork_chop": 150, "sweet_potato": 200, "broccoli": 80, "honey": 10, "garlic": 5, "soy_sauce": 8, "olive_oil": 6, "salt": 1},
+    "instructions": "1. Heat the oven to 425F and roast the cubed sweet potato, tossed with oil and salt, until caramelized.\n2. Sear the salted pork chops in oil over medium-high heat to a brown crust, cook to 145F, then rest.\n3. Add the garlic, soy sauce, and honey to the pan and simmer into a glaze.\n4. Spoon the glaze over the chops; serve with steamed broccoli and the sweet potato."
+  },
+  {
+    "name": "Shrimp fried rice",
+    "slot": "dinner",
+    "equipment": ["stove"],
+    "prep_minutes": 20,
+    "tags": ["high_protein", "balanced"],
+    "flavor_note": "Cold, day-old rice fries up separate and toasty instead of mushy.",
+    "per_serving": {"shrimp": 100, "rice_white": 200, "eggs": 50, "carrots": 40, "corn_frozen": 40, "soy_sauce": 12, "garlic": 5, "ground_ginger": 1, "olive_oil": 6},
+    "instructions": "1. Scramble the egg in hot oil, then remove it.\n2. Stir-fry the carrots and corn, then add the shrimp and cook just until pink.\n3. Add the cold rice and press it into the pan to crisp before tossing.\n4. Season with garlic, ginger, and soy sauce, then fold the egg back in."
+  },
+  {
+    "name": "Black bean & sweet potato tacos",
+    "slot": "dinner",
+    "equipment": ["oven", "stove"],
+    "prep_minutes": 30,
+    "tags": ["vegan", "balanced", "meal_prep"],
+    "flavor_note": "Charring the tortillas over a burner adds smoke that ties the whole taco together.",
+    "per_serving": {"tortillas": 90, "sweet_potato": 150, "black_beans": 100, "avocado": 50, "salsa": 30, "cumin": 1, "chili_powder": 1, "lime": 8, "olive_oil": 6, "salt": 1},
+    "instructions": "1. Heat the oven to 425F and roast the cubed sweet potato with oil, cumin, chili powder, and salt until tender and browned.\n2. Warm the black beans.\n3. Char the tortillas directly over a flame or in a dry pan until spotty.\n4. Fill with sweet potato, beans, sliced avocado, and salsa; finish with a squeeze of lime."
+  },
+  {
+    "name": "Lentil & rice bowl with wilted greens",
+    "slot": "dinner",
+    "equipment": ["stove"],
+    "prep_minutes": 25,
+    "tags": ["vegan", "high_protein", "cheap"],
+    "flavor_note": "A final squeeze of lemon lifts earthy lentils out of heaviness.",
+    "per_serving": {"lentils": 100, "rice_white": 150, "spinach": 30, "onion": 30, "garlic": 5, "cumin": 1, "olive_oil": 8, "salt": 1, "lemon": 8},
+    "instructions": "1. Simmer the lentils in plenty of water until tender, then drain.\n2. Soften the onion and garlic in the oil with the cumin.\n3. Fold in the lentils, wilt the spinach through, and season with salt.\n4. Serve over the rice with a squeeze of lemon."
+  },
+  {
+    "name": "Pasta primavera with parmesan",
+    "slot": "dinner",
+    "equipment": ["stove"],
+    "prep_minutes": 22,
+    "tags": ["vegetarian", "balanced"],
+    "flavor_note": "Browning the mushrooms hard first builds a savory, almost meaty base.",
+    "per_serving": {"pasta_ww": 140, "broccoli": 60, "bell_pepper": 50, "mushrooms": 50, "garlic": 5, "olive_oil": 8, "parmesan": 15, "red_pepper_flakes": 0.5, "salt": 1},
+    "instructions": "1. Boil the pasta in well-salted water until just tender, saving a splash of the water.\n2. Meanwhile brown the mushrooms in the oil without crowding, then add the pepper and broccoli until crisp-tender.\n3. Stir in the garlic and red pepper flakes for a moment.\n4. Toss with the pasta, the reserved water, and the parmesan into a light sauce; salt to taste."
+  },
+  {
+    "name": "Vegetable egg fried rice",
+    "slot": "dinner",
+    "equipment": ["stove"],
+    "prep_minutes": 18,
+    "tags": ["vegetarian", "balanced", "cheap"],
+    "flavor_note": "Sriracha at the end brings heat that plays off the sweet corn and carrots.",
+    "per_serving": {"rice_white": 200, "eggs": 100, "mixed_veg_frozen": 80, "soy_sauce": 12, "garlic": 5, "ground_ginger": 1, "olive_oil": 6, "sriracha": 5},
+    "instructions": "1. Scramble the eggs in hot oil and remove.\n2. Stir-fry the mixed vegetables until hot and glossy.\n3. Add the cold rice and press it flat to crisp before tossing.\n4. Season with garlic, ginger, and soy sauce, fold the eggs back in, and finish with sriracha."
+  },
+  {
+    "name": "Chicken fajita bowl",
+    "slot": "dinner",
+    "equipment": ["stove"],
+    "prep_minutes": 25,
+    "tags": ["high_protein", "balanced", "meal_prep"],
+    "flavor_note": "Cook the peppers and onion hard and fast so they blister but stay a little crunchy.",
+    "per_serving": {"chicken_breast": 150, "rice_white": 160, "bell_pepper": 60, "onion": 40, "black_beans": 60, "cumin": 1, "paprika": 1, "lime": 8, "olive_oil": 6, "salt": 1},
+    "instructions": "1. Toss the sliced chicken with cumin, paprika, and salt.\n2. Sear it in the oil over high heat until charred at the edges, then remove.\n3. Blister the peppers and onion in the same pan.\n4. Combine with the chicken, squeeze lime over, and serve over rice with the warmed beans."
+  },
+  {
+    "name": "Greek yogurt with honey & berries",
+    "slot": "snack",
+    "equipment": [],
+    "prep_minutes": 3,
+    "tags": ["vegetarian", "high_protein", "no_cook", "snack", "cut"],
+    "flavor_note": "Honey stirred in beats honey on top — every spoonful is sweet.",
+    "per_serving": {"greek_yogurt": 170, "blueberries": 40, "honey": 8},
+    "instructions": "1. Stir the honey into the yogurt until smooth.\n2. Top with the blueberries and eat."
+  },
+  {
+    "name": "Peanut butter banana toast",
+    "slot": "snack",
+    "equipment": [],
+    "prep_minutes": 4,
+    "tags": ["vegan", "snack", "carb_forward"],
+    "flavor_note": "Spreading peanut butter on warm toast lets it soften into the bread.",
+    "per_serving": {"bread_ww": 56, "peanut_butter": 24, "banana": 60, "cinnamon": 0.5},
+    "instructions": "1. Lightly toast the bread.\n2. Spread the peanut butter over it while still warm.\n3. Top with sliced banana and a dusting of cinnamon."
+  },
+  {
+    "name": "Crispy roasted chickpeas",
+    "slot": "snack",
+    "equipment": ["oven"],
+    "prep_minutes": 30,
+    "tags": ["vegan", "snack", "high_protein"],
+    "flavor_note": "Drying the chickpeas well before roasting is the secret to real crunch.",
+    "per_serving": {"chickpeas": 120, "olive_oil": 5, "paprika": 1, "cumin": 1, "salt": 1},
+    "instructions": "1. Heat the oven to 400F.\n2. Drain and pat the chickpeas thoroughly dry.\n3. Toss with the oil, paprika, cumin, and salt.\n4. Roast, shaking the pan once, until deep golden and crisp."
+  },
+  {
+    "name": "Yogurt & granola parfait",
+    "slot": "snack",
+    "equipment": [],
+    "prep_minutes": 4,
+    "tags": ["vegetarian", "snack", "high_protein", "no_cook"],
+    "flavor_note": "Layer it in a cup so you get yogurt, crunch, and fruit in every bite.",
+    "per_serving": {"greek_yogurt": 150, "granola": 30, "strawberries": 50},
+    "instructions": "1. Spoon a layer of yogurt into a cup.\n2. Add a layer of granola and sliced strawberries.\n3. Repeat and eat right away so the granola stays crisp."
+  },
+  {
+    "name": "Turkey & cheese roll-ups",
+    "slot": "snack",
+    "equipment": [],
+    "prep_minutes": 4,
+    "tags": ["high_protein", "no_cook", "snack", "cut"],
+    "flavor_note": "A thin line of mustard keeps a plain protein snack from tasting flat.",
+    "per_serving": {"deli_turkey": 85, "cheddar": 28, "mustard": 5},
+    "instructions": "1. Spread a thin line of mustard down each turkey slice.\n2. Lay a strip of cheddar on top and roll each slice up."
+  },
+  {
+    "name": "Salted edamame",
+    "slot": "snack",
+    "equipment": ["microwave"],
+    "prep_minutes": 5,
+    "tags": ["vegan", "snack", "high_protein", "quick"],
+    "flavor_note": "Salt the edamame while hot so it clings to the pods.",
+    "per_serving": {"edamame": 150, "salt": 1},
+    "instructions": "1. Microwave or steam the edamame until hot throughout.\n2. Toss with the salt and eat warm."
+  }
+]

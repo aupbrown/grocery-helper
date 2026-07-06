@@ -49,3 +49,36 @@ def test_filter_allergen_excludes_matching():
     ids = {i.id for i in no_dairy}
     assert "milk_2pct" not in ids
     assert "chicken_breast" in ids
+
+
+def test_catalog_ids_are_unique():
+    ids = [i.id for i in load_catalog(CATALOG_PATH)]
+    assert len(ids) == len(set(ids)), "duplicate ingredient ids in catalog"
+
+
+def test_vegan_items_are_also_vegetarian():
+    # vegan implies vegetarian; filter_catalog relies on the vegetarian tag being present too.
+    for i in load_catalog(CATALOG_PATH):
+        if "vegan" in i.tags:
+            assert "vegetarian" in i.tags, i.id
+
+
+def test_macros_are_non_negative():
+    for i in load_catalog(CATALOG_PATH):
+        for m in (i.kcal_per_100g, i.protein_per_100g, i.carbs_per_100g, i.fat_per_100g):
+            assert m >= 0, i.id
+
+
+def test_expanded_catalog_has_flavor_builders_and_new_proteins():
+    by_id = catalog_by_id(load_catalog(CATALOG_PATH))
+    # Cheap spices: pantry staples tagged veg+vegan so diet filters never strip seasoning.
+    for sid in ("cumin", "paprika", "chili_powder", "oregano"):
+        assert sid in by_id, sid
+        assert by_id[sid].pantry_staple is True, sid
+        assert {"vegetarian", "vegan"} <= set(by_id[sid].tags), sid
+    # New proteins carry the right allergens and are weekly groceries, not pantry staples.
+    assert "fish" in by_id["canned_salmon"].allergens
+    assert "shellfish" in by_id["shrimp"].allergens
+    assert by_id["canned_salmon"].pantry_staple is False
+    # New carbs/wrappers.
+    assert "gluten" in by_id["tortillas"].allergens

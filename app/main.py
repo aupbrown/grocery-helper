@@ -1,3 +1,4 @@
+import json
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,6 +16,7 @@ from app.targets import compute_targets
 from app.generator import generate, generate_one
 from app.plan import compute_plan, adjust_to_targets, reconcile_seasonings, snap_units
 from app.validate import validate_plan
+from app.units import to_grams, owned_unit_options
 from app import storage, auth
 
 # Load .env so GEMINI_API_KEY and DATABASE_URL are available under `uvicorn`.
@@ -51,15 +53,23 @@ def form(request: Request):
     user = auth.current_user(request)
     kitchen = KitchenProfile()
     owned_prechecked: set[str] = set()
+    owned_amounts: dict[str, dict] = {}   # id -> {qty, unit}, pre-filled from a logged-in pantry
     if user:
         prof = storage.get_kitchen_profile(user["id"])
         if prof:
             kitchen = KitchenProfile.model_validate(prof)
-        owned_prechecked = {p["normalized_item_key"] for p in storage.list_pantry(user["id"])
-                            if p["normalized_item_key"]}
+        for p in storage.list_pantry(user["id"]):
+            key = p.get("normalized_item_key")
+            if key and key in CATALOG_BY_ID:
+                owned_prechecked.add(key)
+                if p.get("quantity") is not None:
+                    owned_amounts[key] = {"qty": p["quantity"], "unit": p.get("unit") or ""}
+    # Units to offer per ownable (non-pantry) ingredient; every one converts cleanly to grams.
+    unit_options = {i.id: owned_unit_options(i) for i in CATALOG if not i.pantry_staple}
     return templates.TemplateResponse(request, "form.html", {
         "catalog": CATALOG, "allergens": ALLERGENS, "kitchen": kitchen,
-        "owned_prechecked": owned_prechecked, "logged_in": user is not None,
+        "owned_prechecked": owned_prechecked, "owned_amounts": owned_amounts,
+        "unit_options": unit_options, "logged_in": user is not None,
     })
 
 
@@ -90,21 +100,57 @@ def _num(s) -> float | None:
         return None
 
 
+def _parse_owned_grams(owned_grams_json: str) -> dict[str, float]:
+    """Decode the {id: grams} hidden field carried through the form -> targets -> plan hop."""
+    if not owned_grams_json:
+        return {}
+    try:
+        data = json.loads(owned_grams_json)
+    except (ValueError, TypeError):
+        return {}
+    out: dict[str, float] = {}
+    if isinstance(data, dict):
+        for k, v in data.items():
+            g = _num(v)
+            if k in CATALOG_BY_ID and g is not None and g > 0:
+                out[k] = g
+    return out
+
+
+def _owned_grams_from_form(form, owned_ids) -> dict[str, float]:
+    """Read the per-ingredient amount + unit fields the user filled in and convert each to grams."""
+    out: dict[str, float] = {}
+    for iid in owned_ids:
+        ing = CATALOG_BY_ID.get(iid)
+        if not ing:
+            continue
+        qty = _num(form.get(f"owned_qty_{iid}"))
+        unit = (form.get(f"owned_unit_{iid}") or "").strip()
+        if qty is None or qty <= 0 or not unit:
+            continue                       # no amount given -> "have enough" (skip entirely)
+        grams = to_grams(qty, unit, ing)
+        if grams and grams > 0:
+            out[iid] = round(grams, 1)
+    return out
+
+
 def _plan_inputs(*, weekly_budget, goal, bodyweight_lb, activity_level, max_cook_minutes,
                  dietary_pattern, avoid_allergens, owned_ingredient_ids, target_calories,
-                 target_protein, target_carbs, target_fat, kitchen_json) -> PlanInputs:
+                 target_protein, target_carbs, target_fat, kitchen_json,
+                 owned_grams=None) -> PlanInputs:
     """Assemble PlanInputs from the form fields shared by /plan, /regenerate, and /register."""
     return PlanInputs(
         weekly_budget=weekly_budget, goal=goal, bodyweight_lb=bodyweight_lb,
         activity_level=activity_level, max_cook_minutes=max_cook_minutes,
         dietary_pattern=dietary_pattern, avoid_allergens=avoid_allergens,
-        owned_ingredient_ids=owned_ingredient_ids, target_calories=target_calories,
+        owned_ingredient_ids=owned_ingredient_ids, owned_grams=owned_grams or {},
+        target_calories=target_calories,
         target_protein=target_protein, target_carbs=target_carbs, target_fat=target_fat,
         kitchen=_parse_kitchen(kitchen_json))
 
 
 @app.post("/targets", response_class=HTMLResponse)
-def targets(
+async def targets(
     request: Request,
     weekly_budget: float = Form(...),
     goal: Goal = Form(...),
@@ -131,6 +177,9 @@ def targets(
     kitchen = _kitchen_from_form(
         microwave, stove, oven, air_fryer, blender, rice_cooker, freezer, mini_fridge,
         no_cook_preferred, prioritize_time, max_single_session_minutes, preferred_prep_sessions)
+    # Convert the per-ingredient amount/unit fields to grams once here, then carry them forward as a
+    # single JSON hidden field (mirrors kitchen_json) so /plan needs no dynamic-field parsing.
+    owned_grams = _owned_grams_from_form(await request.form(), owned_ingredient_ids)
     return templates.TemplateResponse(request, "targets.html", {
         "targets": t,
         "weekly_budget": weekly_budget,
@@ -141,6 +190,7 @@ def targets(
         "dietary_pattern": dietary_pattern,
         "avoid_allergens": avoid_allergens,
         "owned_ingredient_ids": owned_ingredient_ids,
+        "owned_grams_json": json.dumps(owned_grams),
         "kitchen_json": kitchen.model_dump_json(),
     })
 
@@ -161,12 +211,13 @@ def plan(
     target_carbs: float = Form(...),
     target_fat: float = Form(...),
     kitchen_json: str = Form(""),
+    owned_grams_json: str = Form(""),
 ):
     inputs = _plan_inputs(
         weekly_budget=weekly_budget, goal=goal, bodyweight_lb=bodyweight_lb,
         activity_level=activity_level, max_cook_minutes=max_cook_minutes,
         dietary_pattern=dietary_pattern, avoid_allergens=avoid_allergens,
-        owned_ingredient_ids=owned_ingredient_ids,
+        owned_ingredient_ids=owned_ingredient_ids, owned_grams=_parse_owned_grams(owned_grams_json),
         target_calories=target_calories, target_protein=target_protein,
         target_carbs=target_carbs, target_fat=target_fat, kitchen_json=kitchen_json,
     )
@@ -211,6 +262,7 @@ def _render_results(request, inputs: PlanInputs,
         "budget_base_json": budget_base.model_dump_json(),
         "protein_base_json": protein_base.model_dump_json(),
         "kitchen_json": inputs.kitchen.model_dump_json(),
+        "owned_grams_json": json.dumps(inputs.owned_grams),
         "logged_in": "user_id" in request.session,
     })
 
@@ -235,12 +287,13 @@ def regenerate(
     target_carbs: float = Form(...),
     target_fat: float = Form(...),
     kitchen_json: str = Form(""),
+    owned_grams_json: str = Form(""),
 ):
     inputs = _plan_inputs(
         weekly_budget=weekly_budget, goal=goal, bodyweight_lb=bodyweight_lb,
         activity_level=activity_level, max_cook_minutes=max_cook_minutes,
         dietary_pattern=dietary_pattern, avoid_allergens=avoid_allergens,
-        owned_ingredient_ids=owned_ingredient_ids,
+        owned_ingredient_ids=owned_ingredient_ids, owned_grams=_parse_owned_grams(owned_grams_json),
         target_calories=target_calories, target_protein=target_protein,
         target_carbs=target_carbs, target_fat=target_fat, kitchen_json=kitchen_json,
     )
@@ -294,6 +347,7 @@ def _save_current_plan(user_id: int, form) -> int:
         dietary_pattern=form.get("dietary_pattern", "none"),
         avoid_allergens=form.getlist("avoid_allergens"),
         owned_ingredient_ids=form.getlist("owned_ingredient_ids"),
+        owned_grams=_parse_owned_grams(form.get("owned_grams_json", "")),
         target_calories=float(form["target_calories"]), target_protein=float(form["target_protein"]),
         target_carbs=float(form["target_carbs"]), target_fat=float(form["target_fat"]),
         kitchen_json=form.get("kitchen_json", ""))
@@ -306,6 +360,21 @@ def _save_current_plan(user_id: int, form) -> int:
                                                   inputs.avoid_allergens))
     computed, validation = _finalize(base, inputs, filtered_by_id, cap)
     return storage.save_plan(user_id, _plan_record(inputs, computed, validation, plan_kind))
+
+
+def _persist_owned_to_pantry(user_id: int, form) -> None:
+    """Save a registering guest's entered owned amounts to their pantry (as grams) so the generate
+    form pre-fills them next week. Best-effort and idempotent against already-saved catalog items."""
+    owned = _parse_owned_grams(form.get("owned_grams_json", ""))
+    if not owned:
+        return
+    existing = {p.get("normalized_item_key") for p in storage.list_pantry(user_id)}
+    for iid, grams in owned.items():
+        if iid in existing:
+            continue
+        storage.add_pantry_item(user_id, {
+            "item_name": CATALOG_BY_ID[iid].name, "normalized_item_key": iid,
+            "quantity": grams, "unit": "g", "source": "generate_form"})
 
 
 def _auth_page(request: Request, error: str | None = None, email: str = ""):
@@ -350,6 +419,10 @@ async def register(request: Request):
             _save_current_plan(user_id, form)
         except Exception:
             pass
+    try:
+        _persist_owned_to_pantry(user_id, form)
+    except Exception:
+        pass
     return RedirectResponse("/account", status_code=303)
 
 

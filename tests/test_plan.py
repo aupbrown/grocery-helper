@@ -65,11 +65,19 @@ MEAL = Meal(name="Chicken & rice", cook_time_minutes=20, servings=2,
                          MealIngredient(ingredient_id="salt", grams=5)])
 
 
-def _inputs(owned=None):
+def _inputs(owned=None, owned_grams=None):
     return PlanInputs(weekly_budget=30, goal=Goal.maintain, bodyweight_lb=180,
                       max_cook_minutes=120, owned_ingredient_ids=owned or [],
+                      owned_grams=owned_grams or {},
                       target_calories=2700, target_protein=180,
                       target_carbs=326, target_fat=75)
+
+
+def _chicken_plan(grams):
+    """A one-ingredient plan whose only grocery cost is chicken (test pack: 1000g for $10)."""
+    return GeneratedPlan(meals=[Meal(name="Chicken", cook_time_minutes=10, servings=7,
+        instructions="1. Cook the chicken.",
+        ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=grams)])])
 
 
 def test_macros_for_meal():
@@ -104,6 +112,31 @@ def test_pantry_cost_separate_and_excludes_owned():
     plan = GeneratedPlan(meals=[MEAL])
     assert pantry_cost(plan, BY_ID) == 0.50            # salt: one canister
     assert pantry_cost(plan, BY_ID, owned_ids=["salt"]) == 0.00
+
+
+def test_partial_ownership_charges_whole_package_shortfall():
+    plan = _chicken_plan(1500)                          # needs 2 packs = $20 with nothing owned
+    assert weekly_grocery_cost(plan, BY_ID) == 20.00
+    # own 600g -> shortfall 900g -> 1 pack -> $10 (whole-package reality reduces at the boundary)
+    assert weekly_grocery_cost(plan, BY_ID, owned_grams={"chicken_breast": 600}) == 10.00
+
+
+def test_full_ownership_by_quantity_is_free():
+    plan = _chicken_plan(1500)
+    assert weekly_grocery_cost(plan, BY_ID, owned_grams={"chicken_breast": 1500}) == 0.00
+    assert weekly_grocery_cost(plan, BY_ID, owned_grams={"chicken_breast": 2000}) == 0.00
+
+
+def test_owned_without_quantity_still_treated_as_enough():
+    plan = _chicken_plan(1500)
+    # Marked owned but no amount given -> "have enough" (preserves the original checkbox behavior).
+    assert weekly_grocery_cost(plan, BY_ID, owned_ids=["chicken_breast"]) == 0.00
+
+
+def test_small_partial_ownership_still_buys_needed_packages():
+    plan = _chicken_plan(1500)
+    # own only 100g -> shortfall 1400g -> still 2 packs -> $20
+    assert weekly_grocery_cost(plan, BY_ID, owned_grams={"chicken_breast": 100}) == 20.00
 
 
 def test_daily_protein_grams():
@@ -319,6 +352,35 @@ def test_adjust_distributes_a_big_day_into_snacks():
     assert any(m.slot == "snack" for m in adj.meals)   # a high-calorie day gets snack occasions
 
 
+def test_plan_b_lands_every_macro_in_band():
+    # Plan B (budget_cap=None) hits calories, protein, carbs AND fat for each goal.
+    for goal, cal, prot in [(Goal.bulk, 3000, 180), (Goal.maintain, 2400, 150),
+                            (Goal.cut, 2350, 170)]:
+        inputs = _goal_inputs(goal, cal, prot)
+        adj = adjust_to_targets(_real_base(), _REAL, inputs, budget_cap=None)
+        cp = compute_plan(adj, _REAL, inputs)
+        assert cp.calories_met and cp.protein_met and cp.carbs_met and cp.fat_met, \
+            f"{goal.value}: {cp.target_note}"
+
+
+def test_plan_a_stays_budget_first_for_macro_topups():
+    # Plan A's budget cap eases the (budget-aware) carb/protein top-ups, so it carries fewer/
+    # cheaper additions than the uncapped Plan B from the same base.
+    inputs = _goal_inputs(Goal.bulk, 3000, 180, budget=12)
+    capped = adjust_to_targets(_real_base(), _REAL, inputs, budget_cap=12)
+    uncapped = adjust_to_targets(_real_base(), _REAL, inputs, budget_cap=None)
+    assert weekly_grocery_cost(capped, _REAL) <= weekly_grocery_cost(uncapped, _REAL)
+
+
+def test_plan_keeps_snacks_few_on_a_big_day():
+    # A high-calorie bulk must stay a few eating occasions (whey + ~1 food snack), not fan out
+    # into 4-6 small snacks — the meals carry most of the calories.
+    inputs = _goal_inputs(Goal.bulk, 3200, 190)
+    adj = adjust_to_targets(_real_base(), _REAL, inputs, budget_cap=None)
+    snacks = [m for m in adj.meals if m.slot == "snack"]
+    assert len(snacks) <= 3, [s.name for s in snacks]
+
+
 def test_adjust_adds_whey_shake_meal():
     inputs = _goal_inputs(Goal.cut, 400, 50)
     adj = adjust_to_targets(_CUT_BASE, BY_ID, inputs, budget_cap=None)
@@ -423,6 +485,17 @@ def test_reconcile_seasonings_adds_mentioned_but_missing():
     out = reconcile_seasonings(GeneratedPlan(meals=[meal]), BY_ID)
     ids = {mi.ingredient_id for mi in out.meals[0].ingredients}
     assert "salt" in ids        # mentioned in the steps but unlisted -> added (priced later)
+
+
+def test_reconcile_seasonings_adds_new_spices():
+    # The expanded catalog's spices are also caught when the steps name them but the model
+    # forgot to list them, so the flavor is priced like the original seasonings.
+    meal = Meal(name="Cumin beans", cook_time_minutes=10, servings=7,
+                instructions="1. Toast the cumin and paprika, then stir in the beans.",
+                ingredients=[MealIngredient(ingredient_id="black_beans", grams=700)])
+    out = reconcile_seasonings(GeneratedPlan(meals=[meal]), _REAL)
+    ids = {mi.ingredient_id for mi in out.meals[0].ingredients}
+    assert "cumin" in ids and "paprika" in ids
 
 
 def test_reconcile_seasonings_skips_already_listed():
@@ -552,3 +625,22 @@ def test_owned_ingredients_appear_in_owned_list():
     # still excluded from grocery_list and not counted in total_cost
     assert "rice_white" not in {g.ingredient_id for g in cp.grocery_list}
     assert cp.total_cost == 10.00
+
+
+def test_compute_plan_partial_ownership_shows_shortfall():
+    plan = _chicken_plan(1500)                             # 2 packs if buying all
+    cp = compute_plan(plan, BY_ID, _inputs(owned_grams={"chicken_breast": 600}))
+    # Partially owned -> stays in the grocery list, priced at the shortfall, with owned recorded.
+    chicken = next(g for g in cp.grocery_list if g.ingredient_id == "chicken_breast")
+    assert chicken.owned_grams == 600
+    assert chicken.cost == 10.00                           # shortfall 900g -> 1 pack
+    assert cp.total_cost == 10.00
+    assert "chicken_breast" not in {g.ingredient_id for g in cp.owned_list}
+
+
+def test_compute_plan_full_ownership_by_quantity_lists_as_owned():
+    plan = _chicken_plan(1500)
+    cp = compute_plan(plan, BY_ID, _inputs(owned_grams={"chicken_breast": 1500}))
+    assert "chicken_breast" in {g.ingredient_id for g in cp.owned_list}
+    assert "chicken_breast" not in {g.ingredient_id for g in cp.grocery_list}
+    assert cp.total_cost == 0.00

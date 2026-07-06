@@ -131,6 +131,20 @@ def test_system_prompt_wants_method_only_steps_and_batch_cooking():
     assert "realistic" in sp            # portion-realism guidance present
 
 
+def test_system_prompt_includes_curated_few_shot_examples():
+    # A hand-vetted exemplar is embedded to set the quality bar for names + method steps.
+    sp = build_system_prompt(CATALOG)
+    assert "EXAMPLE" in sp.upper()
+    assert "Garlic-seared chicken" in sp   # pulled from the curated recipe library
+
+
+def test_system_prompt_gives_cooking_craft_guidance():
+    sp = build_system_prompt(CATALOG).lower()
+    assert "sear" in sp                                       # technique guidance
+    assert any(w in sp for w in ("brighten", "acid", "vinegar", "lemon"))  # finishing acid
+    assert any(w in sp for w in ("texture", "textural", "crisp"))          # textural contrast
+
+
 def test_system_prompt_asks_for_weekly_slots():
     sp = build_system_prompt(CATALOG).lower()
     assert "breakfast" in sp and "lunch" in sp and "dinner" in sp

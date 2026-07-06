@@ -65,6 +65,12 @@ def _per_serving(m: Macros, servings: int) -> Macros:
 SEASONING_KEYWORDS = {
     "salt": "salt", "black_pepper": "pepper", "garlic": "garlic", "onion": "onion",
     "soy_sauce": "soy sauce", "hot_sauce": "hot sauce", "mixed_herbs": "herb", "lemon": "lemon",
+    # Expanded catalog: cheap spices/condiments the steps may name but the model forgets to list.
+    "cumin": "cumin", "paprika": "paprika", "chili_powder": "chili powder", "oregano": "oregano",
+    "dried_basil": "basil", "cinnamon": "cinnamon", "curry_powder": "curry",
+    "ground_ginger": "ginger", "red_pepper_flakes": "red pepper flake",
+    "apple_cider_vinegar": "vinegar", "lime": "lime", "mustard": "mustard", "honey": "honey",
+    "sriracha": "sriracha",
 }
 
 OIL_ID = "olive_oil"
@@ -161,24 +167,42 @@ def _grams_by_ingredient(generated: GeneratedPlan) -> dict[str, float]:
     return grams_by_ing
 
 
+def shortfall_grams(ing_id: str, grams: float, owned: set[str], caps: dict[str, float]) -> float:
+    """Grams of `ing_id` the user must still buy: the amount the plan uses minus what they own.
+
+    A cap in `caps` means "I have this many grams" -> buy only the difference. Membership in
+    `owned` without a cap means "I have enough" -> buy nothing. Neither -> buy the whole amount.
+    """
+    if ing_id in caps:
+        return max(0.0, grams - caps[ing_id])
+    if ing_id in owned:
+        return 0.0
+    return grams
+
+
 def weekly_grocery_cost(
     generated: GeneratedPlan,
     by_id: dict[str, Ingredient],
     owned_ids=(),
+    owned_grams: dict[str, float] | None = None,
 ) -> float:
-    """Whole-package cost of this week's groceries (owned and pantry staples excluded).
+    """Whole-package cost of this week's groceries (pantry staples excluded; owned amounts netted).
 
-    Single source of truth for the weekly budget — used both to render the plan and
-    to decide budget retries in the generator, so the two never disagree. Pantry
-    staples (seasonings, oil) are a separate one-time stock-up, see pantry_cost().
+    Single source of truth for the weekly budget — used both to render the plan and to decide
+    budget retries in the generator, so the two never disagree. Owned ingredients are charged only
+    for the shortfall (grams used minus grams owned). Pantry staples (seasonings, oil) are a
+    separate one-time stock-up, see pantry_cost().
     """
     owned = set(owned_ids)
+    caps = owned_grams or {}
     total = 0.0
     for ing_id, grams in _grams_by_ingredient(generated).items():
         ing = by_id[ing_id]
-        if ing_id in owned or ing.pantry_staple:
+        if ing.pantry_staple:
             continue
-        total += package_cost(grams, ing)[1]
+        need = shortfall_grams(ing_id, grams, owned, caps)
+        if need > 0:
+            total += package_cost(need, ing)[1]
     return round(total, 2)
 
 
@@ -186,18 +210,22 @@ def pantry_cost(
     generated: GeneratedPlan,
     by_id: dict[str, Ingredient],
     owned_ids=(),
+    owned_grams: dict[str, float] | None = None,
 ) -> float:
-    """One-time whole-package cost of pantry staples (owned excluded).
+    """One-time whole-package cost of pantry staples (owned amounts netted out).
 
     Shown separately from the weekly budget because these last for months.
     """
     owned = set(owned_ids)
+    caps = owned_grams or {}
     total = 0.0
     for ing_id, grams in _grams_by_ingredient(generated).items():
         ing = by_id[ing_id]
-        if ing_id in owned or not ing.pantry_staple:
+        if not ing.pantry_staple:
             continue
-        total += package_cost(grams, ing)[1]
+        need = shortfall_grams(ing_id, grams, owned, caps)
+        if need > 0:
+            total += package_cost(need, ing)[1]
     return round(total, 2)
 
 
@@ -220,6 +248,12 @@ def daily_calories(generated: GeneratedPlan, by_id: dict[str, Ingredient]) -> fl
 def daily_carbs(generated: GeneratedPlan, by_id: dict[str, Ingredient]) -> float:
     """Average daily carbs for the plan (weekly total / 7)."""
     total = sum(macros_for_meal(meal, by_id).carbs for meal in generated.meals)
+    return round(total / DAYS, 1)
+
+
+def daily_fat(generated: GeneratedPlan, by_id: dict[str, Ingredient]) -> float:
+    """Average daily fat for the plan (weekly total / 7)."""
+    total = sum(macros_for_meal(meal, by_id).fat for meal in generated.meals)
     return round(total / DAYS, 1)
 
 
@@ -313,16 +347,16 @@ def macro_policy(goal: Goal, target_cal: float, target_protein: float,
 WHEY_ID = "whey_protein"
 SCOOP_GRAMS = 32.0                  # one scoop of whey (per the catalog product)
 PROTEIN_DRINK_NAME = "Daily protein shake"
-FMIN, FMAX = 0.6, 1.25             # gentle ±25% scaling; the rest is distributed into snacks
+FMIN, FMAX = 0.6, 1.6              # let meals grow enough to carry most calories (fewer snacks)
 # Whey is a supplement: at most one scoop/day, taken as a daily drink — never mixed into meals.
 WHEY_MAX_WEEKLY_G = SCOOP_GRAMS * DAYS
 
 # Distribution policy (all in calories, so it scales with the catalog — no per-ingredient caps):
 # a single main-meal serving is capped, and the day's remaining calories are carried by snacks.
-MEAL_MAX_KCAL = 800.0      # per-serving calorie cap for one main meal
-SNACK_MAX_KCAL = 450.0     # per-serving calorie cap for one snack
+MEAL_MAX_KCAL = 1100.0     # per-serving calorie cap for one main meal
+SNACK_MAX_KCAL = 700.0     # per-serving calorie cap for one snack
 CAL_SNACK_MIN = 120.0      # don't bother adding a snack for a gap smaller than this (kcal/day)
-MAX_CAL_SNACKS = 2         # at most two calorie snacks on top of the protein shake
+MAX_CAL_SNACKS = 1         # at most one calorie snack on top of the protein shake
 
 
 def _protein_drink(grams: float) -> Meal:
@@ -396,6 +430,111 @@ def _add_distribution_snacks(meals: list[Meal], by_id, policy: MacroPolicy,
     return meals + snacks
 
 
+# Low-fat, carb-dense snacks used to lift carbs into band without adding much fat. Keyed off
+# macros like the other snack recipes, so they scale as the catalog grows.
+_CARB_SNACK_RECIPES: tuple[tuple[str, dict[str, float]], ...] = (
+    ("Banana oatmeal", {"oats": 50.0, "banana": 120.0}),
+    ("Berry banana bowl", {"banana": 120.0, "strawberries": 120.0, "blueberries": 80.0}),
+)
+CARB_SNACK_MAX_MULT = 1.5
+CARB_SNACKS_MAX = 1
+
+
+def _carb_snack(carb_gap_per_serving: float, by_id, used_names: set[str]) -> Meal | None:
+    """A low-fat carb snack sized BY CARBS to add ~`carb_gap_per_serving` g of carbs, using the
+    first available recipe not already used. Returns None if none fit."""
+    for name, base in _CARB_SNACK_RECIPES:
+        if name in used_names or not all(i in by_id for i in base):
+            continue
+        base_carb = sum(by_id[i].carbs_per_100g * g / 100 for i, g in base.items())
+        if base_carb <= 0:
+            continue
+        mult = min(CARB_SNACK_MAX_MULT, max(0.5, carb_gap_per_serving / base_carb))
+        ings = [MealIngredient(ingredient_id=i, grams=round(g * mult * DAYS, 1))
+                for i, g in base.items()]
+        return Meal(name=name, slot="snack", cook_time_minutes=0, servings=DAYS,
+                    instructions="1. Combine the ingredients.\n2. Chill and eat one portion a day.",
+                    ingredients=ings)
+    return None
+
+
+def _reduce_oil(meals: list[Meal], by_id, fat_g_to_cut: float) -> list[Meal]:
+    """Trim cooking oil (pure fat) to shed ~`fat_g_to_cut` g of fat, dropping the oil entirely if
+    it would fall near zero. Oil is the fat lever because trimming meat/cheese/PB costs protein."""
+    if fat_g_to_cut <= 0 or OIL_ID not in by_id:
+        return meals
+    cut = fat_g_to_cut          # oil is ~100% fat, so grams of fat ≈ grams of oil
+    out = []
+    for meal in meals:
+        ings = []
+        for mi in meal.ingredients:
+            if mi.ingredient_id == OIL_ID and cut > 0:
+                take = min(cut, mi.grams)
+                cut -= take
+                if mi.grams - take >= 0.5:
+                    ings.append(MealIngredient(ingredient_id=OIL_ID,
+                                               grams=round(mi.grams - take, 1)))
+            else:
+                ings.append(mi)
+        if ings:
+            out.append(meal.model_copy(update={"ingredients": ings}))
+    return out
+
+
+def _add_oil(meals: list[Meal], by_id, oil_g_to_add: float) -> list[Meal]:
+    """Add `oil_g_to_add` of cooking oil to the first non-snack meal (merging with any oil there)."""
+    if oil_g_to_add <= 0 or OIL_ID not in by_id:
+        return meals
+    out, placed = [], False
+    for meal in meals:
+        if not placed and meal.slot != "snack":
+            ings = list(meal.ingredients)
+            for idx, mi in enumerate(ings):
+                if mi.ingredient_id == OIL_ID:
+                    ings[idx] = MealIngredient(ingredient_id=OIL_ID,
+                                               grams=round(mi.grams + oil_g_to_add, 1))
+                    break
+            else:
+                ings.append(MealIngredient(ingredient_id=OIL_ID, grams=round(oil_g_to_add, 1)))
+            out.append(meal.model_copy(update={"ingredients": ings}))
+            placed = True
+        else:
+            out.append(meal)
+    return out
+
+
+def _rebalance_carbs_fat(meals: list[Meal], by_id, policy: MacroPolicy,
+                         budget_cap, inputs) -> list[Meal]:
+    """Steer carbs and fat into the goal's bands — full for Plan B (budget_cap=None), budget-eased
+    for Plan A. Lowers fat by trimming cooking oil, raises carbs with low-fat carb snacks, and tops
+    fat up with oil if short. Carb fixes are snack occasions, never bigger single meals."""
+    def affordable(candidate):
+        return budget_cap is None or weekly_grocery_cost(
+            GeneratedPlan(meals=candidate), by_id, inputs.owned_ingredient_ids) <= budget_cap
+
+    fat = daily_fat(GeneratedPlan(meals=meals), by_id)
+    if fat > policy.fat_max:                                  # fat over -> trim oil toward aim
+        meals = _reduce_oil(meals, by_id, (fat - policy.fat_aim) * DAYS)
+
+    used = {m.name for m in meals}                            # carbs under -> add carb snack(s)
+    for _ in range(CARB_SNACKS_MAX):
+        carb_gap = policy.carb_aim - daily_carbs(GeneratedPlan(meals=meals), by_id)
+        if carb_gap <= GAP_EPS:
+            break
+        snack = _carb_snack(carb_gap, by_id, used)
+        if snack is None or not affordable(meals + [snack]):
+            break
+        meals = meals + [snack]
+        used.add(snack.name)
+
+    fat = daily_fat(GeneratedPlan(meals=meals), by_id)
+    if fat < policy.fat_min:                                  # fat under -> add oil toward aim
+        candidate = _add_oil(meals, by_id, (policy.fat_aim - fat) * DAYS)
+        if affordable(candidate):
+            meals = candidate
+    return meals
+
+
 def _scale_meals(meals: list[Meal], f: float, by_id) -> list[Meal]:
     """Scale non-pantry ingredients of non-snack meals by an even factor f. Snacks are left
     as-is, whey is kept out of meals, and a meal left with no ingredients is dropped."""
@@ -434,7 +573,8 @@ def _even_scale_to_aim(meals: list[Meal], by_id, policy: MacroPolicy,
     scaled = _scale_meals(meals, f, by_id)
     if budget_cap is not None:
         while f > 1.0 and weekly_grocery_cost(GeneratedPlan(meals=scaled), by_id,
-                                              inputs.owned_ingredient_ids) > budget_cap:
+                                              inputs.owned_ingredient_ids,
+                                              inputs.owned_grams) > budget_cap:
             f = max(1.0, round(f - 0.05, 3))
             scaled = _scale_meals(meals, f, by_id)
     return scaled
@@ -442,8 +582,9 @@ def _even_scale_to_aim(meals: list[Meal], by_id, policy: MacroPolicy,
 
 def _trim_overshoot(meals: list[Meal], by_id, policy: MacroPolicy) -> list[Meal]:
     """If the protein shake / snacks pushed daily calories above the goal's ceiling, shave the
-    MEALS (never the snacks) back down so the total respects the strict cap. Bounded by FMIN."""
-    excess = daily_calories(GeneratedPlan(meals=meals), by_id) - policy.cal_max
+    MEALS (never the snacks) back down so the total respects the strict cap. Bounded by FMIN.
+    A small margin below the ceiling absorbs whole-gram rounding so the result never tips over."""
+    excess = daily_calories(GeneratedPlan(meals=meals), by_id) - policy.cal_max * 0.995
     if excess <= 0:
         return meals
     scalable = sum(macros_for_grams(by_id[mi.ingredient_id], mi.grams).calories
@@ -490,6 +631,8 @@ def adjust_to_targets(
 
     # 2) Distribute the rest of the day's protein/calories into snack occasions.
     meals = _add_distribution_snacks(meals, by_id, policy, budget_cap, inputs)
+    # 2b) Steer carbs and fat into band (full for Plan B; budget-eased for Plan A).
+    meals = _rebalance_carbs_fat(meals, by_id, policy, budget_cap, inputs)
     # 3) Keep the strict ceiling: if the shake/snacks overshot, shave the meals back.
     meals = _trim_overshoot(meals, by_id, policy)
     return _clean(GeneratedPlan(meals=meals))
@@ -501,6 +644,7 @@ def compute_plan(
     inputs: PlanInputs,
 ) -> ComputedPlan:
     owned = set(inputs.owned_ingredient_ids)
+    caps = inputs.owned_grams
 
     meal_views: list[MealView] = []
     total = Macros(calories=0, protein=0, carbs=0, fat=0)
@@ -549,18 +693,19 @@ def compute_plan(
     pantry_list: list[GroceryItem] = []
     owned_list: list[GroceryItem] = []
     for ing_id, grams in grams_by_ing.items():
-        if ing_id in owned:
-            ing = by_id[ing_id]
+        ing = by_id[ing_id]
+        need = shortfall_grams(ing_id, grams, owned, caps)
+        if need <= 0:                       # fully covered by what the user already owns
             owned_list.append(GroceryItem(
                 ingredient_id=ing_id, name=ing.name, grams=round(grams, 1),
                 uses_display=format_amount(grams, ing),
                 packages=0, package_label=ing.package_label,
                 package_price=ing.package_price, cost=0.0,
                 pantry_staple=ing.pantry_staple, per_meal_cost=None,
+                owned_grams=round(grams, 1),
             ))
             continue
-        ing = by_id[ing_id]
-        packages, cost = package_cost(grams, ing)
+        packages, cost = package_cost(need, ing)   # buy only the shortfall (whole packages)
         per_meal = None
         if ing.pantry_staple:
             # Prorated value used this week, spread across the meals that use it —
@@ -572,11 +717,13 @@ def compute_plan(
             packages=packages, package_label=ing.package_label,
             package_price=ing.package_price, cost=cost,
             pantry_staple=ing.pantry_staple, per_meal_cost=per_meal,
+            owned_grams=round(caps.get(ing_id, 0.0), 1),   # >0 when partially owned
         )
         (pantry_list if ing.pantry_staple else grocery_list).append(item)
 
-    total_cost = weekly_grocery_cost(generated, by_id, inputs.owned_ingredient_ids)
-    pantry_total = pantry_cost(generated, by_id, inputs.owned_ingredient_ids)
+    total_cost = weekly_grocery_cost(generated, by_id, inputs.owned_ingredient_ids,
+                                     inputs.owned_grams)
+    pantry_total = pantry_cost(generated, by_id, inputs.owned_ingredient_ids, inputs.owned_grams)
 
     daily = Macros(
         calories=round(total.calories / DAYS, 1),

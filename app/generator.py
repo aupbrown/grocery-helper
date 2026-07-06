@@ -4,11 +4,13 @@ from app.models import GeneratedPlan, Meal, Ingredient, PlanInputs
 from app.plan import weekly_grocery_cost, daily_protein_grams, daily_calories
 from app.kitchen import EQUIPMENT, available_equipment
 from app.meal_templates import fallback_plan
+from app.recipes import RECIPES
 
-# Free-tier model. Flash-Lite has high daily request limits, so we use it to iterate on
-# non-quality features without burning the ~20 RPD cap on more capable free models.
-# For a meal-QUALITY run, bump this one constant (e.g. "gemini-3-flash-preview") and the
-# matching assertion in tests/test_generator.py.
+# Mid-tier model for meal QUALITY. Flash (not Flash-Lite) writes markedly better recipe names and
+# cooking method while staying cheap enough to run per-plan at scale. The large static system prompt
+# (rules + few-shot exemplars + catalog) is kept stable so Gemini implicit prompt caching amortizes
+# it across the budget/protein passes, retries, and users. Swap to a stronger model here if quality
+# demands it; keep the assertion in tests/test_generator.py in sync.
 MODEL = "gemini-3.1-flash-lite"
 
 # How many times to re-prompt with real cost/protein feedback before giving up.
@@ -21,6 +23,21 @@ PROTEIN_CEILING = 1.10
 
 BUDGET = "budget"
 PROTEIN = "protein"
+
+# A few hand-vetted exemplars from the curated library, embedded verbatim to show the model the
+# quality bar for names and method steps. Fixed (not per-request) so the system-prompt prefix stays
+# cache-stable; chosen for range — a technique-driven stove dinner, a vegan scramble, a no-cook bowl.
+_EXEMPLAR_NAMES = (
+    "Garlic-seared chicken with rice & broccoli",
+    "Golden tofu scramble",
+    "Greek yogurt granola bowl with honey",
+)
+
+
+def _few_shot_block() -> str:
+    by_name = {r.name: r for r in RECIPES}
+    picked = [by_name[n] for n in _EXEMPLAR_NAMES if n in by_name]
+    return "\n\n".join(f"{r.name} ({r.slot}) — {r.flavor_note}\n{r.instructions}" for r in picked)
 
 
 def build_system_prompt(catalog: list[Ingredient]) -> str:
@@ -64,9 +81,13 @@ def build_system_prompt(catalog: list[Ingredient]) -> str:
         "no-cook meal. Use ONLY equipment the request says is available, and honor any no-cook or "
         "save-time preference (favor batch-friendly oven sheet-pan or one-pot meals when asked to "
         "save time).\n\n"
-        "MAKE THE FOOD SOUND GOOD: season every meal using the seasoning ingredients "
-        "(salt, black pepper, garlic, onion, soy sauce, hot sauce, mixed herbs, lemon) and "
-        "give each meal an appealing, specific name.\n\n"
+        "COOK WITH CRAFT: build real flavor, not just fuel. Bloom aromatics and spices in a little "
+        "fat before adding liquids; brown and sear proteins for color and depth; season in stages "
+        "rather than only at the end; balance richness with a finishing brightener — a squeeze of "
+        "lemon or lime, a splash of vinegar, or fresh-tasting herbs; and give every meal one "
+        "textural contrast (something crisp against something soft). Season every meal generously "
+        "using the seasonings and spices in the catalog, and give each meal an appealing, specific "
+        "name that hints at how it tastes.\n\n"
         "WRITE METHOD-ONLY STEPS: the instructions are numbered, step-by-step cooking METHOD — "
         "prep, cook temperatures and times, and assembly — one step per line (start each line "
         "'1.', '2.', ...). Do NOT put any quantities in the steps — no grams, cups, ounces, or "
@@ -80,6 +101,10 @@ def build_system_prompt(catalog: list[Ingredient]) -> str:
         "listing it.\n\n"
         "Do not invent ingredients or output any nutrition or price numbers — only ids and "
         "gram amounts.\n\n"
+        "STUDY THESE EXAMPLES — match this level of craft in your names and method steps (real "
+        "technique, temperatures, doneness cues, staged seasoning, and a finishing brightener). "
+        "They are the quality bar, not meals to copy verbatim:\n\n"
+        f"{_few_shot_block()}\n\n"
         "INGREDIENT CATALOG (id: name, macros, package price):\n"
         f"{catalog_block}"
     )
@@ -291,7 +316,7 @@ def generate(
                                 if mi.ingredient_id in valid_ids and mi.grams > 0]
             meal.equipment_required = [e for e in meal.equipment_required if e in EQUIPMENT]
 
-        cost = weekly_grocery_cost(plan, by_id, inputs.owned_ingredient_ids)
+        cost = weekly_grocery_cost(plan, by_id, inputs.owned_ingredient_ids, inputs.owned_grams)
         protein = daily_protein_grams(plan, by_id)
         calories = daily_calories(plan, by_id)
         under_budget = cost <= inputs.weekly_budget

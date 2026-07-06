@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from app.models import GeneratedPlan, Ingredient, KitchenProfile, Macros, PlanInputs, Targets
 from app.plan import (
     DAYS, _grams_by_ingredient, _target_status, macro_policy, macros_for_meal,
-    package_cost, pantry_cost, weekly_grocery_cost,
+    package_cost, pantry_cost, shortfall_grams, weekly_grocery_cost,
 )
 from app.kitchen import (
     EQUIPMENT_LABELS, freezer_warning, missing_equipment, recommend_sessions,
@@ -63,11 +63,17 @@ def _daily_macros(generated: GeneratedPlan, by_id: dict[str, Ingredient]) -> Mac
                   carbs=round(carb / DAYS, 1), fat=round(fat / DAYS, 1))
 
 
-def _owned_savings(generated: GeneratedPlan, by_id, owned_ids) -> float:
-    """Whole-package value of owned ingredients the plan uses — i.e. money not spent."""
+def _owned_savings(generated: GeneratedPlan, by_id, owned_ids, owned_grams=None) -> float:
+    """Money not spent because the user already owns ingredients: full whole-package cost minus the
+    whole-package cost of the shortfall actually bought. Fully-owned items save their whole cost;
+    partially-owned items save only what their on-hand amount removes at a package boundary."""
     owned = set(owned_ids)
-    total = sum(package_cost(grams, by_id[ing_id])[1]
-                for ing_id, grams in _grams_by_ingredient(generated).items() if ing_id in owned)
+    caps = owned_grams or {}
+    total = 0.0
+    for ing_id, grams in _grams_by_ingredient(generated).items():
+        need = shortfall_grams(ing_id, grams, owned, caps)
+        if need < grams:
+            total += package_cost(grams, by_id[ing_id])[1] - package_cost(need, by_id[ing_id])[1]
     return round(total, 2)
 
 
@@ -91,8 +97,9 @@ def validate_plan(generated: GeneratedPlan, by_id: dict[str, Ingredient],
     """
     kit = kitchen or inputs.kitchen
     owned_ids = inputs.owned_ingredient_ids
+    owned_grams = inputs.owned_grams
     budget = float(inputs.weekly_budget)
-    total_cost = weekly_grocery_cost(generated, by_id, owned_ids)
+    total_cost = weekly_grocery_cost(generated, by_id, owned_ids, owned_grams)
 
     within_budget = total_cost <= budget + BUDGET_EPS
     over_budget_by = round(max(0.0, total_cost - budget), 2)
@@ -174,8 +181,8 @@ def validate_plan(generated: GeneratedPlan, by_id: dict[str, Ingredient],
         cost_per_day=round(total_cost / DAYS, 2),
         cost_per_meal=cost_per_meal,
         cost_per_g_protein=cost_per_g_protein,
-        pantry_savings=_owned_savings(generated, by_id, owned_ids),
-        pantry_total=pantry_cost(generated, by_id, owned_ids),
+        pantry_savings=_owned_savings(generated, by_id, owned_ids, owned_grams),
+        pantry_total=pantry_cost(generated, by_id, owned_ids, owned_grams),
         total_prep_minutes=total_prep,
         prep_sessions=prep_sessions,
         largest_session_minutes=largest_session,

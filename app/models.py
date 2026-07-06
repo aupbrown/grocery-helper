@@ -99,6 +99,10 @@ class PlanInputs(BaseModel):
     dietary_pattern: str = "none"  # "none" | "vegetarian" | "vegan"
     avoid_allergens: list[str] = Field(default_factory=list)
     owned_ingredient_ids: list[str] = Field(default_factory=list)
+    # Ingredient id -> grams the user already has on hand. An id here is charged only for the
+    # shortfall (grams used - grams owned). An owned id absent from this map means "have enough"
+    # (skipped entirely), preserving the original all-or-nothing checkbox behavior.
+    owned_grams: dict[str, float] = Field(default_factory=dict)
     target_calories: float
     target_protein: float
     target_carbs: float
@@ -140,6 +144,7 @@ class GroceryItem(BaseModel):
     cost: float                   # packages * package_price
     pantry_staple: bool
     per_meal_cost: float | None = None  # amortized cost/meal for pantry items
+    owned_grams: float = 0        # grams the user already has; >0 means partially owned (buy the rest)
 
 
 class ComputedPlan(BaseModel):

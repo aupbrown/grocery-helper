@@ -1,41 +1,272 @@
-body { font-family: system-ui, sans-serif; margin: 0; background: #fafafa; color: #1a1a1a; }
-main { max-width: 640px; margin: 0 auto; padding: 24px 16px 64px; }
-h1 { font-size: 1.5rem; }
-label { display: block; margin: 12px 0; font-weight: 600; }
-label.inline { display: inline-block; margin-right: 12px; font-weight: 400; }
-input, select { display: block; width: 100%; padding: 8px; margin-top: 4px;
-  font-size: 1rem; box-sizing: border-box; }
-label.inline input { display: inline-block; width: auto; }
-fieldset { margin: 12px 0; }
-button { margin-top: 16px; padding: 10px 16px; font-size: 1rem; cursor: pointer;
-  background: #1a1a1a; color: #fff; border: 0; border-radius: 6px; }
-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
-th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; }
-.meal { border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
-.meta { color: #555; font-size: 0.9rem; }
-.summary { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 16px; }
-.note { color: #777; font-size: 0.85rem; }
-.ok { color: #137333; } .over { color: #b00020; }
-.guarantee { font-size: 1.05rem; margin: 4px 0; }
-.metrics { list-style: none; padding: 0; margin: 6px 0; display: flex; flex-wrap: wrap;
-  gap: 6px 14px; }
-.metrics li { color: #333; font-size: 0.9rem; background: #f3f3f3; border-radius: 4px;
-  padding: 2px 8px; }
-.prep { font-size: 0.9rem; margin: 6px 0; }
-.presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-.presets button { margin-top: 0; padding: 6px 10px; font-size: 0.85rem; background: #e8e8e8;
-  color: #1a1a1a; }
-.chip { display: inline-block; background: #eef; color: #334; border-radius: 4px;
-  padding: 1px 8px; font-size: 0.8rem; margin-left: 6px; }
-.nav { font-size: 0.85rem; margin: 0 0 8px; color: #555; }
+/* ============================================================
+   Grocery Helper — design system
+   Identity: gym macros x grocery receipt. Fresh green means
+   "in the green" (under budget AND healthy); amber is reserved
+   for attention (over budget / warnings). Mobile-first.
+   ============================================================ */
+
+:root {
+  --ink: #16201A;        /* near-black with faint green warmth */
+  --paper: #F7F9F4;      /* clean cool-white page */
+  --surface: #FFFFFF;    /* cards */
+  --green: #167A4B;      /* primary */
+  --green-deep: #0F5636;
+  --green-soft: #E7F2EA; /* tints, fills */
+  --lime: #B7E04B;       /* energy accent, focus */
+  --amber: #C9781A;      /* over budget / warning */
+  --amber-soft: #FaEeda;
+  --muted: #5C6B60;      /* secondary text */
+  --line: #E2E8DD;       /* hairlines */
+
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 1px 2px rgba(22,32,26,.05), 0 10px 24px -16px rgba(22,32,26,.22);
+
+  --display: 'Archivo', system-ui, sans-serif;
+  --body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --maxw: 660px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--body); font-size: 16px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+main { max-width: var(--maxw); margin: 0 auto; padding: 20px 16px 72px; }
+
+/* ---- Typography ---- */
+h1, h2, h3, h4 {
+  font-family: var(--display); line-height: 1.12; margin: 0 0 .45em;
+  font-weight: 800; letter-spacing: -.01em;
+}
+h1 { font-size: clamp(1.7rem, 6vw, 2.35rem); letter-spacing: -.025em; }
+h2 { font-size: 1.35rem; }
+h3 { font-size: 1.08rem; }
+h4 { font-size: .95rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+p { margin: .5em 0; }
+a { color: var(--green-deep); text-underline-offset: 2px; }
+a:hover { color: var(--green); }
+
+.eyebrow {
+  font-family: var(--display); text-transform: uppercase; letter-spacing: .14em;
+  font-size: .72rem; font-weight: 700; color: var(--green); margin: 0 0 .3em;
+}
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.note { color: var(--muted); font-size: .86rem; }
+.ok { color: var(--green); } .over { color: var(--amber); }
+.muted { color: var(--muted); }
+
+/* ---- Buttons ---- */
+button, .btn {
+  font-family: var(--display); font-weight: 700; font-size: 1rem; cursor: pointer;
+  border: 0; border-radius: var(--radius-sm); padding: 12px 18px;
+  background: var(--green); color: #fff; letter-spacing: .01em;
+  transition: background .15s ease, transform .05s ease;
+}
+button:hover, .btn:hover { background: var(--green-deep); }
+button:active { transform: translateY(1px); }
+.btn-ghost, button.btn-ghost {
+  background: transparent; color: var(--green-deep); border: 1.5px solid var(--line);
+}
+.btn-ghost:hover { background: var(--green-soft); }
+:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; border-radius: 4px; }
+
+/* ---- Nav ---- */
+.nav { font-size: .85rem; color: var(--muted); margin: 0 0 18px; }
+.nav a { color: var(--muted); }
+
+/* ---- Surfaces ---- */
+.summary, .planblock, .meal, .cta, .card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.summary, .card { padding: 16px; box-shadow: var(--shadow); }
+
+/* ============================================================
+   Hero — "your week at a glance"
+   ============================================================ */
+.hero {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 18px 18px 16px; margin: 0 0 18px;
+  border-top: 4px solid var(--green);
+}
+.hero.hero--over { border-top-color: var(--amber); }
+.hero-budget { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 2px 0 4px; }
+.hero-budget-spent { font-family: var(--display); font-weight: 800; font-size: 2.4rem; line-height: 1; }
+.hero .hero--over .hero-budget-spent, .hero.hero--over .hero-budget-spent { color: var(--amber); }
+.hero-budget-of { color: var(--muted); font-size: .95rem; }
+.hero-verdict { font-family: var(--display); font-weight: 700; font-size: .95rem; }
+
+/* budget tally meter (the signature element) */
+.meter { margin: 10px 0 14px; }
+.meter-track {
+  position: relative; height: 12px; background: var(--green-soft);
+  border-radius: 999px; overflow: hidden;
+}
+.meter-fill {
+  height: 100%; width: var(--pct, 0%); border-radius: 999px;
+  background: linear-gradient(90deg, var(--green), var(--green-deep));
+  animation: grow-x .9s cubic-bezier(.2,.7,.2,1) both;
+}
+.hero--over .meter-fill { background: linear-gradient(90deg, var(--amber), #A85F12); }
+.meter-labels { display: flex; justify-content: space-between; font-size: .8rem; color: var(--muted); margin-top: 5px; }
+
+/* macro progress bars */
+.macros { display: grid; gap: 9px; margin-top: 4px; }
+.macrobar-head { display: flex; justify-content: space-between; font-size: .84rem; margin-bottom: 3px; }
+.macrobar-head .label { font-weight: 600; }
+.bar { height: 8px; background: var(--green-soft); border-radius: 999px; overflow: hidden; }
+.bar-fill {
+  height: 100%; width: var(--pct, 0%); border-radius: 999px; background: var(--green);
+  animation: grow-x .9s cubic-bezier(.2,.7,.2,1) both;
+}
+.bar-fill.is-met { background: var(--green); }
+.bar-fill.is-under { background: var(--lime); }
+.bar-fill.is-over { background: var(--amber); }
+.hero-time { margin: 12px 0 0; font-size: .86rem; color: var(--muted); }
+.hero-time .chip { margin-left: 0; margin-right: 6px; }
+
+@keyframes grow-x { from { width: 0; } }
+
+/* ---- Chips ---- */
+.chip {
+  display: inline-block; background: var(--green-soft); color: var(--green-deep);
+  border-radius: 999px; padding: 2px 10px; font-size: .78rem; font-weight: 600;
+  margin-left: 6px; white-space: nowrap;
+}
+.chip.chip--warn { background: var(--amber-soft); color: var(--amber); }
+
+/* ============================================================
+   Tabs (Plan A / Plan B) — progressive enhancement
+   Without JS both panels show; with JS (.js on <html>) only the
+   active one does, and the tablist becomes interactive.
+   ============================================================ */
+.tabs { display: none; gap: 6px; margin: 0 0 16px; }
+.js .tabs { display: flex; }
+.tab {
+  flex: 1; font-family: var(--display); font-weight: 700; font-size: .95rem;
+  background: var(--surface); color: var(--muted); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 10px 12px; text-align: center;
+}
+.tab small { display: block; font-weight: 600; font-size: .72rem; opacity: .8; }
+.tab[aria-selected="true"] { background: var(--green); color: #fff; border-color: var(--green); }
+.tab[aria-selected="true"] small { opacity: .95; }
+.js .planpanel[hidden] { display: none; }
+.plantag { display: inline-block; margin: 0 0 6px; }
+
+/* ============================================================
+   Meal cards — collapsed via <details>
+   ============================================================ */
+.meal { padding: 0; margin: 10px 0; overflow: hidden; }
+.meal > summary {
+  list-style: none; cursor: pointer; padding: 13px 15px;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+}
+.meal > summary::-webkit-details-marker { display: none; }
+.meal-icon { font-size: 1.35rem; line-height: 1; }
+.meal-head .slot {
+  font-family: var(--display); text-transform: uppercase; letter-spacing: .08em;
+  font-size: .68rem; font-weight: 700; color: var(--green);
+}
+.meal-head .name { font-family: var(--display); font-weight: 700; font-size: 1.02rem; line-height: 1.15; }
+.meal-head .macro-line { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+.meal-chevron { color: var(--muted); transition: transform .2s ease; }
+.meal[open] .meal-chevron { transform: rotate(90deg); }
+.meal-body { padding: 0 15px 15px; border-top: 1px solid var(--line); }
+.meal-body .meta { color: var(--muted); font-size: .84rem; margin: 10px 0; }
+.meal-body ul { margin: 8px 0; padding-left: 18px; }
+.meal-body ul li { margin: 3px 0; }
+.recipe { margin: 6px 0 0; padding-left: 20px; }
+.recipe li { margin: 6px 0; }
+.regen { margin: 0; padding: 6px 12px; font-size: .82rem; background: var(--green-soft); color: var(--green-deep); }
+.regen:hover { background: #d7e9dc; }
+
+/* ============================================================
+   Shopping list — collapsed <details>
+   ============================================================ */
+.shop { margin: 14px 0; }
+.shop > summary {
+  list-style: none; cursor: pointer; padding: 14px 15px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  font-family: var(--display); font-weight: 700;
+}
+.shop[open] > summary { border-radius: var(--radius) var(--radius) 0 0; }
+.shop > summary::-webkit-details-marker { display: none; }
+.shop-total { color: var(--green-deep); }
+.shop-body {
+  border: 1px solid var(--line); border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius); padding: 4px 15px 14px;
+}
+table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: .92rem; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+th { font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
+td.price, th.price { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ============================================================
+   Forms
+   ============================================================ */
+label { display: block; margin: 14px 0 0; font-weight: 600; }
+label.inline { display: inline-flex; align-items: center; gap: 6px; margin: 6px 14px 6px 0; font-weight: 400; }
+input, select {
+  display: block; width: 100%; padding: 10px; margin-top: 6px;
+  font-size: 1rem; font-family: var(--body); box-sizing: border-box;
+  border: 1.5px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink);
+}
+input:focus, select:focus { border-color: var(--green); outline: none; }
+label.inline input { display: inline-block; width: auto; margin: 0; }
+fieldset { margin: 14px 0; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+legend { font-family: var(--display); font-weight: 700; font-size: .95rem; padding: 0 6px; }
+
+.field-group {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 4px 16px 16px; margin: 16px 0;
+}
+.field-group > h2 { margin-top: 14px; font-size: 1.05rem; }
+
+/* collapsible advanced section on the form */
+.disclose { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin: 16px 0; }
+.disclose > summary {
+  list-style: none; cursor: pointer; padding: 15px 16px;
+  font-family: var(--display); font-weight: 700; display: flex; justify-content: space-between; align-items: center;
+}
+.disclose > summary::-webkit-details-marker { display: none; }
+.disclose > summary .hint { font-family: var(--body); font-weight: 400; color: var(--muted); font-size: .82rem; }
+.disclose-body { padding: 0 16px 12px; border-top: 1px solid var(--line); }
+.disclose .chev { color: var(--muted); transition: transform .2s ease; }
+.disclose[open] > summary .chev { transform: rotate(90deg); }
+
+.owned-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
+.owned-row label.inline { margin: 0; flex: 1 1 42%; min-width: 150px; }
+.owned-row .owned-qty { display: inline-block; width: 88px; margin: 0; }
+.owned-row .owned-unit { display: inline-block; width: auto; margin: 0; }
+
+.presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.presets button { margin: 0; padding: 7px 12px; font-size: .84rem; background: var(--green-soft); color: var(--green-deep); }
+.presets button:hover { background: #d7e9dc; }
+
+.cta { padding: 18px; margin-top: 26px; }
+.cta.cta--flat { background: var(--green-soft); border-color: transparent; }
+
 .inline-form { display: inline; }
-.linkbtn { background: none; border: 0; color: #1558d6; padding: 0; margin: 0; font-size: inherit;
-  cursor: pointer; text-decoration: underline; }
-.cta { background: #eef6ff; border-radius: 8px; padding: 16px; margin-top: 24px; }
-.planblock { border: 1px solid #d0d0d0; border-radius: 10px; padding: 8px 16px 16px;
-  margin: 20px 0; background: #fff; }
-.blurb { color: #555; font-size: 0.9rem; margin-top: -4px; }
-#working { text-align: center; margin: 32px 0; color: #333; }
-.spinner { width: 36px; height: 36px; margin: 0 auto 12px; border: 4px solid #ddd;
-  border-top-color: #1a1a1a; border-radius: 50%; animation: spin 0.8s linear infinite; }
+.linkbtn {
+  background: none; border: 0; color: var(--green-deep); padding: 0; margin: 0;
+  font-size: inherit; font-family: var(--body); cursor: pointer; text-decoration: underline;
+}
+.linkbtn:hover { background: none; color: var(--green); }
+
+/* ---- Loading (targets page) ---- */
+#working { text-align: center; margin: 40px 0; color: var(--ink); }
+.spinner {
+  width: 40px; height: 40px; margin: 0 auto 14px; border: 4px solid var(--green-soft);
+  border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- Motion / a11y ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important; }
+  .meter-fill, .bar-fill { animation: none; }
+}

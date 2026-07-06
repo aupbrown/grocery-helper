@@ -1,28 +1,29 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Your targets</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  {% set page_title = "Your targets" %}
+  {% include "_head.html" %}
 </head>
 <body>
 <main>
   <h1>Your daily targets</h1>
-  <p>We estimated these from your bodyweight and goal. Adjust them if you like.</p>
+  <p class="note">We estimated these from your bodyweight and goal. Tweak them if you like, then generate.</p>
   <form method="post" action="/plan" id="planform">
-    <label>Daily calories
-      <input type="number" name="target_calories" step="10" value="{{ targets.calories }}" required>
-    </label>
-    <label>Daily protein (g)
-      <input type="number" name="target_protein" step="5" value="{{ targets.protein }}" required>
-    </label>
-    <label>Daily carbs (g)
-      <input type="number" name="target_carbs" step="5" value="{{ targets.carbs }}" required>
-    </label>
-    <label>Daily fat (g)
-      <input type="number" name="target_fat" step="5" value="{{ targets.fat }}" required>
-    </label>
+    <div class="field-group">
+      <h2>Daily targets</h2>
+      <label>Calories
+        <input type="number" name="target_calories" step="10" value="{{ targets.calories }}" required>
+      </label>
+      <label>Protein (g)
+        <input type="number" name="target_protein" step="5" value="{{ targets.protein }}" required>
+      </label>
+      <label>Carbs (g)
+        <input type="number" name="target_carbs" step="5" value="{{ targets.carbs }}" required>
+      </label>
+      <label>Fat (g)
+        <input type="number" name="target_fat" step="5" value="{{ targets.fat }}" required>
+      </label>
+    </div>
 
     <!-- carry step-1 inputs forward -->
     <input type="hidden" name="weekly_budget" value="{{ weekly_budget }}">
@@ -38,13 +39,15 @@
       <input type="hidden" name="owned_ingredient_ids" value="{{ oid }}">
     {% endfor %}
     <input type="hidden" name="kitchen_json" value="{{ kitchen_json }}">
+    <input type="hidden" name="owned_grams_json" value="{{ owned_grams_json }}">
 
-    <button type="submit" id="generate-btn">Generate my meal plan</button>
+    <button type="submit" id="generate-btn">Generate my meal plan →</button>
   </form>
 
   <div id="working" hidden>
     <div class="spinner"></div>
-    <p>Generating your two meal plans… this can take up to ~30 seconds. Hang tight!</p>
+    <p><strong>Cooking up your two plans…</strong></p>
+    <p class="note">This can take up to ~30 seconds. Hang tight!</p>
   </div>
 
   <script>

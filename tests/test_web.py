@@ -47,25 +47,22 @@ def test_post_plan_renders_results(monkeypatch):
     })
     assert r.status_code == 200
     assert "Chicken &amp; rice" in r.text or "Chicken & rice" in r.text
-    assert "This week&#39;s groceries" in r.text or "This week's groceries" in r.text
-    assert "Fits your budget" in r.text   # both plans rendered
-    assert "Hits your protein" in r.text
-    assert "Per serving:" in r.text       # per-serving meal total labeled
-    assert "/serving" in r.text           # per-ingredient per-serving amounts
-    assert "cup" in r.text                # quantities shown in household measures, not grams
-    assert "Protein target:" in r.text    # met/not-met reporting
-    assert "Calorie target:" in r.text
-    assert "not met" in r.text            # the stub plan is far below 2700/180
-    assert "Daily protein shake" in r.text  # protein topped up via a separate daily drink
-    assert "Carb target:" in r.text       # all four macros now reported
-    assert "Fat target:" in r.text
-    assert "weekly meal plan" in r.text.lower()  # framed as a week of meals
-    assert "one a day" in r.text          # slot batches stated as one serving/day
-    assert "<ol" in r.text                # recipe rendered as numbered steps
-    assert "banana" in r.text             # countable shown as units, not raw grams
-    assert "Salt" in r.text               # seasoning mentioned in steps -> listed & priced
-    assert "Budget estimated at" in r.text or "over your" in r.text  # Budget Guarantee summary
-    assert "/ day" in r.text and "/ meal" in r.text                  # budget-guarantee metrics
+    # Calm results layout: at-a-glance hero, tabbed plans, detail collapsed by default.
+    assert "Your week, sorted" in r.text                       # confident hero headline
+    assert 'role="tablist"' in r.text and r.text.count('role="tab"') >= 2  # Plan A / Plan B tabs
+    assert "Plan A" in r.text and "Plan B" in r.text
+    assert "meter-fill" in r.text                              # budget tally meter (signature)
+    assert "Protein" in r.text and "Calories" in r.text        # macro bars
+    assert "Carbs" in r.text and "Fat" in r.text               # all four macros still reported
+    assert "Under budget" in r.text or "over budget" in r.text  # budget verdict
+    assert "/day" in r.text and "/meal" in r.text              # per-day / per-meal cost
+    assert 'details class="meal"' in r.text                    # meals collapsed by default
+    assert "/serving" in r.text                                # ingredient amounts per serving
+    assert "<ol" in r.text                                     # recipe steps preserved
+    assert 'details class="shop"' in r.text and "Shopping list" in r.text  # one collapsed list
+    assert "Daily protein shake" in r.text                     # whey top-up still added
+    assert "banana" in r.text and "Salt" in r.text             # ingredients still listed in detail
+    assert "fat per serving" not in r.text                     # per-ingredient macro breakdown cut
 
 
 def test_post_plan_flags_stove_meal_for_microwave_only_kitchen(monkeypatch):
@@ -115,9 +112,9 @@ def test_post_regenerate_swaps_one_slot_and_keeps_macros(monkeypatch):
     })
     assert r.status_code == 200
     assert "Fresh stir fry" in r.text                       # the slot was regenerated
-    protein_block = r.text.split("planblock")[-1]           # Plan B (protein-first)
-    assert "Fresh stir fry" in protein_block
-    assert "Protein target: <span class=\"ok\">met" in protein_block   # macros still hold
+    protein_block = r.text.split('id="panel-protein"')[-1]  # Plan B (protein-first) panel
+    assert "Fresh stir fry" in protein_block                # regenerated meal lands in Plan B
+    assert "✓" in protein_block                             # protein target met -> check shown
 
 
 def test_plan_route_survives_generation_failure(monkeypatch):
@@ -137,7 +134,41 @@ def test_plan_route_survives_generation_failure(monkeypatch):
         "target_fat": "70",
     })
     assert r.status_code == 200
-    assert "weekly meal plan" in r.text.lower()   # a real (fallback) plan rendered
+    assert "Your week, sorted" in r.text          # a real (fallback) plan rendered
+
+
+def test_targets_converts_owned_amounts_to_grams():
+    r = client.post("/targets", data={
+        "weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "180",
+        "activity_level": "light", "max_cook_minutes": "120", "dietary_pattern": "none",
+        "owned_ingredient_ids": "chicken_breast",
+        "owned_qty_chicken_breast": "2", "owned_unit_chicken_breast": "lb",
+    })
+    assert r.status_code == 200
+    # 2 lb -> ~907.2 g, carried forward to /plan as the single owned_grams_json hidden field.
+    assert "owned_grams_json" in r.text
+    assert "chicken_breast" in r.text and "907.2" in r.text
+
+
+def test_plan_partial_ownership_shows_buy_the_rest_note(monkeypatch):
+    fake = GeneratedPlan(meals=[
+        Meal(name="Chicken bowl", slot="dinner", cook_time_minutes=20, servings=7,
+             instructions="1. Cook the chicken and rice.",
+             ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=2000),
+                          MealIngredient(ingredient_id="rice_white", grams=1400)])])
+    monkeypatch.setattr(main, "generate", lambda *a, **k: fake)
+    # Skip macro scaling so the owned amount stays a clear partial (stable assertion).
+    monkeypatch.setattr(main, "adjust_to_targets", lambda gen, *a, **k: gen)
+    monkeypatch.setattr(main.storage, "log_event", lambda *a, **k: None)
+    r = client.post("/plan", data={
+        "weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "180",
+        "activity_level": "light", "max_cook_minutes": "120", "dietary_pattern": "none",
+        "target_calories": "2700", "target_protein": "180", "target_carbs": "326",
+        "target_fat": "75", "owned_grams_json": '{"chicken_breast": 500}',
+    })
+    assert r.status_code == 200
+    assert "buying only the rest" in r.text      # partial-ownership note rendered
+    assert "owned_grams_json" in r.text          # threaded into the regenerate/register forms
 
 
 def test_post_signup_thanks(monkeypatch):

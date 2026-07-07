@@ -1,62 +1,52 @@
-<!doctype html>
-<html>
-<head>
-  {% set page_title = "Your targets" %}
-  {% include "_head.html" %}
-</head>
-<body>
-<main>
-  <h1>Your daily targets</h1>
-  <p class="note">We estimated these from your bodyweight and goal. Tweak them if you like, then generate.</p>
-  <form method="post" action="/plan" id="planform">
-    <div class="field-group">
-      <h2>Daily targets</h2>
-      <label>Calories
-        <input type="number" name="target_calories" step="10" value="{{ targets.calories }}" required>
-      </label>
-      <label>Protein (g)
-        <input type="number" name="target_protein" step="5" value="{{ targets.protein }}" required>
-      </label>
-      <label>Carbs (g)
-        <input type="number" name="target_carbs" step="5" value="{{ targets.carbs }}" required>
-      </label>
-      <label>Fat (g)
-        <input type="number" name="target_fat" step="5" value="{{ targets.fat }}" required>
-      </label>
-    </div>
+{% extends "base.html" %}
+{% block title %}Your daily plan — grocery buddy{% endblock %}
+{% block body_attrs %} class="narrow"{% endblock %}
 
-    <!-- carry step-1 inputs forward -->
-    <input type="hidden" name="weekly_budget" value="{{ weekly_budget }}">
-    <input type="hidden" name="goal" value="{{ goal }}">
-    <input type="hidden" name="bodyweight_lb" value="{{ bodyweight_lb }}">
-    <input type="hidden" name="activity_level" value="{{ activity_level }}">
-    <input type="hidden" name="max_cook_minutes" value="{{ max_cook_minutes }}">
-    <input type="hidden" name="dietary_pattern" value="{{ dietary_pattern }}">
-    {% for a in avoid_allergens %}
-      <input type="hidden" name="avoid_allergens" value="{{ a }}">
-    {% endfor %}
-    {% for oid in owned_ingredient_ids %}
-      <input type="hidden" name="owned_ingredient_ids" value="{{ oid }}">
-    {% endfor %}
-    <input type="hidden" name="kitchen_json" value="{{ kitchen_json }}">
-    <input type="hidden" name="owned_grams_json" value="{{ owned_grams_json }}">
+{% block content %}
+<div class="wizard-top">
+  <a class="back" href="/plan/new?step=2" aria-label="Back to step 2">←</a>
+  <div class="progress-steps" role="progressbar" aria-valuenow="3" aria-valuemin="1" aria-valuemax="3" aria-label="Step 3 of 3">
+    <span class="is-done"></span><span class="is-done"></span><span class="is-done"></span>
+  </div>
+  <span class="count num" aria-hidden="true">3/3</span>
+</div>
+<span class="vh">Step 3 of 3</span>
 
-    <button type="submit" id="generate-btn">Generate my meal plan →</button>
-  </form>
+<h1 style="margin-top:26px">Here's your daily plan</h1>
+<p class="note" style="margin-bottom:20px">Based on {{ w.bodyweight_lb|round|int }} lb,
+  {{ w.goal }}, {{ activity_label }}. Looks off? Tap a number to edit it.</p>
 
-  <div id="working" hidden>
-    <div class="spinner"></div>
-    <p><strong>Cooking up your two plans…</strong></p>
-    <p class="note">This can take up to ~30 seconds. Hang tight!</p>
+<form method="post" action="/plan/generate">
+  <div class="stat-hero">
+    <label class="eyebrow" for="t-cal" style="display:block">Calories / day</label>
+    <input class="stat-edit" id="t-cal" type="number" name="target_calories" min="800" max="6000"
+           step="10" value="{{ targets.calories|round|int }}" required aria-label="Daily calories">
   </div>
 
-  <script>
-    document.getElementById("planform").addEventListener("submit", function () {
-      document.getElementById("generate-btn").disabled = true;
-      document.getElementById("planform").hidden = true;
-      document.getElementById("working").hidden = false;
-    });
-  </script>
-</main>
-</body>
-</html>
+  <div class="macro-cards">
+    <div class="macro-card is-protein">
+      <label class="eyebrow" for="t-pro" style="display:block;letter-spacing:.08em">Protein</label>
+      <input class="stat-edit" id="t-pro" type="number" name="target_protein" min="30" max="400"
+             step="5" value="{{ targets.protein|round|int }}" required aria-label="Protein grams">
+      <span class="fine" style="display:block;font-size:12px">grams</span>
+    </div>
+    <div class="macro-card is-carbs">
+      <label class="eyebrow" for="t-carb" style="display:block;letter-spacing:.08em">Carbs</label>
+      <input class="stat-edit" id="t-carb" type="number" name="target_carbs" min="0" max="800"
+             step="5" value="{{ targets.carbs|round|int }}" required aria-label="Carb grams">
+      <span class="fine" style="display:block;font-size:12px">grams</span>
+    </div>
+    <div class="macro-card is-fat">
+      <label class="eyebrow" for="t-fat" style="display:block;letter-spacing:.08em">Fat</label>
+      <input class="stat-edit" id="t-fat" type="number" name="target_fat" min="0" max="300"
+             step="5" value="{{ targets.fat|round|int }}" required aria-label="Fat grams">
+      <span class="fine" style="display:block;font-size:12px">grams</span>
+    </div>
+  </div>
+
+  <p class="fine" style="margin-bottom:22px"><span aria-hidden="true">💡</span> Protein is the one
+    that matters most for your goal — we treat calories as a soft target.</p>
+
+  <button class="btn" type="submit">Looks right — build my week <span aria-hidden="true">🍳</span></button>
+</form>
+{% endblock %}

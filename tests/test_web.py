@@ -53,15 +53,25 @@ def test_settings_and_pantry_redirect_to_wizard():
         assert r.headers["location"] == "/plan/new?step=2&return=account"
 
 
-def test_post_targets_computes_defaults():
-    r = client.post("/targets", data={
+def test_wizard_step3_shows_computed_targets():
+    c = TestClient(main.app)
+    c.post("/plan/new?step=1", data={
         "weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "180",
-        "activity_level": "light", "max_cook_minutes": "120",
-        "dietary_pattern": "none",
-    })
+        "max_cook_minutes": "120", "activity_level": "light"})
+    r = c.get("/plan/new?step=3")
     assert r.status_code == 200
-    assert "2700" in r.text  # computed calorie default
-    assert "180" in r.text   # computed protein default
+    assert "2700" in r.text                      # computed calorie default
+    assert 'name="target_calories"' in r.text    # editable stat inputs
+    assert 'name="target_protein"' in r.text
+    assert 'action="/plan/generate"' in r.text   # CTA posts to the async generator
+    assert "180 lb" in r.text                    # "based on" summary line
+
+
+def test_wizard_step3_without_basics_redirects_guest_to_step1():
+    c = TestClient(main.app)
+    r = c.get("/plan/new?step=3", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/plan/new?step=1"
 
 
 def test_post_plan_renders_results(monkeypatch):
@@ -178,17 +188,6 @@ def test_plan_route_survives_generation_failure(monkeypatch):
     assert "Your week, sorted" in r.text          # a real (fallback) plan rendered
 
 
-def test_targets_converts_owned_amounts_to_grams():
-    r = client.post("/targets", data={
-        "weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "180",
-        "activity_level": "light", "max_cook_minutes": "120", "dietary_pattern": "none",
-        "owned_ingredient_ids": "chicken_breast",
-        "owned_qty_chicken_breast": "2", "owned_unit_chicken_breast": "lb",
-    })
-    assert r.status_code == 200
-    # 2 lb -> ~907.2 g, carried forward to /plan as the single owned_grams_json hidden field.
-    assert "owned_grams_json" in r.text
-    assert "chicken_breast" in r.text and "907.2" in r.text
 
 
 def test_plan_partial_ownership_shows_buy_the_rest_note(monkeypatch):

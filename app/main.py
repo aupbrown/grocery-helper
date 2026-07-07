@@ -71,12 +71,23 @@ DEFAULT_WIZARD = {
 
 def _wizard(request: Request) -> dict:
     """The wizard's working state: session values over defaults, DB prefill for logged-in
-    users who haven't touched step 2 yet (kitchen profile + pantry)."""
+    users who haven't touched it yet (last plan's basics, kitchen profile, pantry)."""
+    sess = request.session.get("wizard")
     w = dict(DEFAULT_WIZARD)
-    w.update(request.session.get("wizard") or {})
+    w.update(sess or {})
     if w["kitchen"] is None:
         user = auth.current_user(request)
         if user:
+            if sess is None:
+                # Returning user, fresh session: start from their last saved week's basics.
+                plans = storage.list_plans(user["id"])
+                rec = storage.get_plan(plans[0]["id"], user["id"]) if plans else None
+                if rec and rec.get("inputs"):
+                    saved = rec["inputs"]
+                    for key in ("weekly_budget", "goal", "bodyweight_lb", "activity_level",
+                                "max_cook_minutes", "dietary_pattern", "avoid_allergens"):
+                        if saved.get(key) is not None:
+                            w[key] = saved[key]
             prof = storage.get_kitchen_profile(user["id"])
             if prof:
                 w["kitchen"] = KitchenProfile.model_validate(prof).model_dump(mode="json")
@@ -174,14 +185,22 @@ def wizard_step(request: Request, step: int = 1,
         return templates.TemplateResponse(request, "wizard_kitchen.html",
                                           _wizard_step2_context(request, w, ret))
     if step == 3:
+        # A guest who hasn't answered the basics has nothing to confirm yet.
+        if "wizard" not in request.session and not auth.current_user(request):
+            return RedirectResponse("/plan/new?step=1", status_code=303)
         return _targets_step(request, w)
     return templates.TemplateResponse(request, "wizard_basics.html", {
         "w": w, "budget_caption": _budget_caption(w["weekly_budget"])})
 
 
+ACTIVITY_LABELS = {"sedentary": "desk life", "light": "somewhat active", "active": "very active"}
+
+
 def _targets_step(request: Request, w: dict):
-    # Placeholder until the targets step (Task 3) lands; keeps "skip" links safe.
-    return RedirectResponse("/plan/new?step=1", status_code=303)
+    t = compute_targets(w["bodyweight_lb"], Goal(w["goal"]), w["activity_level"])
+    return templates.TemplateResponse(request, "targets.html", {
+        "w": w, "targets": t,
+        "activity_label": ACTIVITY_LABELS.get(w["activity_level"], w["activity_level"])})
 
 
 @app.post("/plan/new")
@@ -236,20 +255,6 @@ async def wizard_post(request: Request, step: int = 1,
         _sync_pantry(user["id"], owned)
         return RedirectResponse("/account", status_code=303)
     return RedirectResponse("/plan/new?step=3", status_code=303)
-
-
-def _kitchen_from_form(
-    microwave: bool, stove: bool, oven: bool, air_fryer: bool, blender: bool,
-    rice_cooker: bool, freezer: bool, mini_fridge: bool, no_cook_preferred: bool,
-    prioritize_time: bool, max_single_session_minutes: int, preferred_prep_sessions: int,
-) -> KitchenProfile:
-    """Build a KitchenProfile from the flat form checkboxes (unchecked box = absent = False)."""
-    return KitchenProfile(
-        microwave=microwave, stove=stove, oven=oven, air_fryer=air_fryer, blender=blender,
-        rice_cooker=rice_cooker, freezer=freezer, mini_fridge=mini_fridge,
-        no_cook_preferred=no_cook_preferred, prioritize_time=prioritize_time,
-        max_single_session_minutes=max_single_session_minutes,
-        preferred_prep_sessions=preferred_prep_sessions)
 
 
 def _parse_kitchen(kitchen_json: str) -> KitchenProfile:
@@ -312,52 +317,6 @@ def _plan_inputs(*, weekly_budget, goal, bodyweight_lb, activity_level, max_cook
         target_calories=target_calories,
         target_protein=target_protein, target_carbs=target_carbs, target_fat=target_fat,
         kitchen=_parse_kitchen(kitchen_json))
-
-
-@app.post("/targets", response_class=HTMLResponse)
-async def targets(
-    request: Request,
-    weekly_budget: float = Form(...),
-    goal: Goal = Form(...),
-    bodyweight_lb: float = Form(...),
-    activity_level: str = Form("light"),
-    max_cook_minutes: int = Form(...),
-    dietary_pattern: str = Form("none"),
-    avoid_allergens: list[str] = Form(default=[]),
-    owned_ingredient_ids: list[str] = Form(default=[]),
-    microwave: bool = Form(False),
-    stove: bool = Form(False),
-    oven: bool = Form(False),
-    air_fryer: bool = Form(False),
-    blender: bool = Form(False),
-    rice_cooker: bool = Form(False),
-    freezer: bool = Form(False),
-    mini_fridge: bool = Form(False),
-    no_cook_preferred: bool = Form(False),
-    prioritize_time: bool = Form(False),
-    max_single_session_minutes: int = Form(60),
-    preferred_prep_sessions: int = Form(2),
-):
-    t = compute_targets(bodyweight_lb, goal, activity_level)
-    kitchen = _kitchen_from_form(
-        microwave, stove, oven, air_fryer, blender, rice_cooker, freezer, mini_fridge,
-        no_cook_preferred, prioritize_time, max_single_session_minutes, preferred_prep_sessions)
-    # Convert the per-ingredient amount/unit fields to grams once here, then carry them forward as a
-    # single JSON hidden field (mirrors kitchen_json) so /plan needs no dynamic-field parsing.
-    owned_grams = _owned_grams_from_form(await request.form(), owned_ingredient_ids)
-    return templates.TemplateResponse(request, "targets.html", {
-        "targets": t,
-        "weekly_budget": weekly_budget,
-        "goal": goal.value,
-        "bodyweight_lb": bodyweight_lb,
-        "activity_level": activity_level,
-        "max_cook_minutes": max_cook_minutes,
-        "dietary_pattern": dietary_pattern,
-        "avoid_allergens": avoid_allergens,
-        "owned_ingredient_ids": owned_ingredient_ids,
-        "owned_grams_json": json.dumps(owned_grams),
-        "kitchen_json": kitchen.model_dump_json(),
-    })
 
 
 @app.post("/plan", response_class=HTMLResponse)

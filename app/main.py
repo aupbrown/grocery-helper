@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -12,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.models import PlanInputs, Goal, GeneratedPlan, KitchenProfile, ComputedPlan
 from app.catalog import load_catalog, catalog_by_id, filter_catalog
+from app.kitchen import EQUIPMENT, EQUIPMENT_LABELS, PRESETS
 from app.targets import compute_targets
 from app.generator import generate, generate_one
 from app.plan import compute_plan, adjust_to_targets, reconcile_seasonings, snap_units
@@ -47,30 +48,194 @@ app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
 
+# --- Coach wizard (A1–A3): landing + 3 steps, state in the session cookie ---
+
+# Common items surfaced as starter pantry chips (mockup A3); the rest sit in a fold.
+STARTER_OWNED = ["rice_white", "eggs", "oats", "peanut_butter", "pasta_ww", "black_beans"]
+
+# Kitchen preset cards, in mockup order.
+PRESET_CARDS = [
+    {"key": "apartment", "emoji": "🏢", "label": "Apartment", "caption": "full kitchen"},
+    {"key": "dorm", "emoji": "🛏️", "label": "Dorm", "caption": "microwave only"},
+    {"key": "shared", "emoji": "👥", "label": "Shared kitchen", "caption": "quick sessions"},
+    {"key": "athlete", "emoji": "🍱", "label": "Meal-prepper", "caption": "batch on Sunday"},
+]
+
+DEFAULT_WIZARD = {
+    "weekly_budget": 40, "goal": "maintain", "bodyweight_lb": 170,
+    "activity_level": "light", "max_cook_minutes": 120,
+    "kitchen": None, "kitchen_preset": "apartment",
+    "dietary_pattern": "none", "avoid_allergens": [], "owned": {},
+}
+
+
+def _wizard(request: Request) -> dict:
+    """The wizard's working state: session values over defaults, DB prefill for logged-in
+    users who haven't touched step 2 yet (kitchen profile + pantry)."""
+    w = dict(DEFAULT_WIZARD)
+    w.update(request.session.get("wizard") or {})
+    if w["kitchen"] is None:
+        user = auth.current_user(request)
+        if user:
+            prof = storage.get_kitchen_profile(user["id"])
+            if prof:
+                w["kitchen"] = KitchenProfile.model_validate(prof).model_dump(mode="json")
+                w["kitchen_preset"] = None
+            if not w["owned"]:
+                owned = {}
+                for p in storage.list_pantry(user["id"]):
+                    key = p.get("normalized_item_key")
+                    if key and key in CATALOG_BY_ID:
+                        owned[key] = {"qty": p.get("quantity"), "unit": p.get("unit") or "g"}
+                w["owned"] = owned
+    if w["kitchen"] is None:
+        w["kitchen"] = PRESETS["apartment"].model_dump(mode="json")
+    return w
+
+
+def _budget_caption(budget: float) -> str:
+    per = budget / 21   # 3 meals a day, 7 days
+    if per < 1.5:
+        mood = "very lean — rice & beans territory"
+    elif per < 2.25:
+        mood = "tight but doable 💪"
+    elif per < 3.25:
+        mood = "comfortable — room for variety"
+    else:
+        mood = "roomy — some nice cuts on the menu 🎉"
+    return f"≈ ${per:.2f} per meal — {mood}"
+
+
+def _owned_grams_from_wizard(w: dict) -> dict[str, float]:
+    """Owned amounts (id -> grams) from the wizard's {id: {qty, unit}} map. Items without a
+    usable amount are skipped: owned-without-amount means "have enough"."""
+    out: dict[str, float] = {}
+    for iid, amt in (w.get("owned") or {}).items():
+        ing = CATALOG_BY_ID.get(iid)
+        if not ing or not isinstance(amt, dict):
+            continue
+        qty = _num(amt.get("qty"))
+        if qty is None or qty <= 0:
+            continue
+        grams = to_grams(qty, amt.get("unit") or "", ing)
+        if grams and grams > 0:
+            out[iid] = round(grams, 1)
+    return out
+
+
+def _sync_pantry(user_id: int, owned: dict) -> None:
+    """Make the DB pantry mirror the wizard's owned map (catalog items only)."""
+    existing = {p["normalized_item_key"]: p for p in storage.list_pantry(user_id)
+                if p.get("normalized_item_key")}
+    for iid, amt in owned.items():
+        ing = CATALOG_BY_ID.get(iid)
+        if not ing:
+            continue
+        if iid in existing:
+            storage.delete_pantry_item(existing[iid]["id"], user_id)
+        qty = _num(amt.get("qty")) if isinstance(amt, dict) else None
+        grams = to_grams(qty, amt.get("unit") or "", ing) if qty else None
+        storage.add_pantry_item(user_id, {
+            "item_name": ing.name, "normalized_item_key": iid,
+            "quantity": round(grams, 1) if grams else None, "unit": "g" if grams else None,
+            "source": "generate_form"})
+    for iid, p in existing.items():
+        if iid not in owned:
+            storage.delete_pantry_item(p["id"], user_id)
+
+
 @app.get("/", response_class=HTMLResponse)
-def form(request: Request):
-    # Logged-in users get their saved kitchen + pantry pre-filled so they don't re-enter them.
+def home(request: Request):
+    return templates.TemplateResponse(request, "home.html", {
+        "logged_in": auth.current_user(request) is not None})
+
+
+def _wizard_step2_context(request: Request, w: dict, ret: str | None) -> dict:
+    ownables = [i for i in CATALOG if not i.pantry_staple]
+    starters = [CATALOG_BY_ID[i] for i in STARTER_OWNED if i in CATALOG_BY_ID]
+    starter_ids = set(STARTER_OWNED)
+    owned_ids = set(w["owned"])
+    # Starter chips + anything already owned show up front; the rest fold away.
+    front = starters + [i for i in ownables if i.id in owned_ids and i.id not in starter_ids]
+    rest = [i for i in ownables if i.id not in starter_ids and i.id not in owned_ids]
+    kitchen = KitchenProfile.model_validate(w["kitchen"])
+    return {"w": w, "kitchen": kitchen, "presets": PRESET_CARDS,
+            "equipment": EQUIPMENT, "equipment_labels": EQUIPMENT_LABELS,
+            "front_items": front, "rest_items": rest,
+            "unit_options": {i.id: owned_unit_options(i) for i in ownables},
+            "allergens": ALLERGENS, "ret": ret}
+
+
+@app.get("/plan/new", response_class=HTMLResponse)
+def wizard_step(request: Request, step: int = 1,
+                ret: str | None = Query(None, alias="return")):
+    w = _wizard(request)
+    if step == 2:
+        return templates.TemplateResponse(request, "wizard_kitchen.html",
+                                          _wizard_step2_context(request, w, ret))
+    if step == 3:
+        return _targets_step(request, w)
+    return templates.TemplateResponse(request, "wizard_basics.html", {
+        "w": w, "budget_caption": _budget_caption(w["weekly_budget"])})
+
+
+def _targets_step(request: Request, w: dict):
+    # Placeholder until the targets step (Task 3) lands; keeps "skip" links safe.
+    return RedirectResponse("/plan/new?step=1", status_code=303)
+
+
+@app.post("/plan/new")
+async def wizard_post(request: Request, step: int = 1,
+                      ret: str | None = Query(None, alias="return")):
+    form = await request.form()
+    w = _wizard(request)
+    if step == 1:
+        w.update(
+            weekly_budget=_num(form.get("weekly_budget")) or 40,
+            goal=form.get("goal") if form.get("goal") in Goal._value2member_map_ else "maintain",
+            bodyweight_lb=_num(form.get("bodyweight_lb")) or 170,
+            max_cook_minutes=int(_num(form.get("max_cook_minutes")) or 120),
+            activity_level=form.get("activity_level", "light"),
+        )
+        request.session["wizard"] = w
+        return RedirectResponse("/plan/new?step=2", status_code=303)
+
+    # Step 2: kitchen preset + equipment overrides + owned shelf + diet.
+    preset = form.get("kitchen_preset") or w.get("kitchen_preset") or "apartment"
+    if preset not in PRESETS:
+        preset = "apartment"
+    kitchen = PRESETS[preset].model_copy()
+    # Equipment chips override the preset — but only when the user saw chips rendered for
+    # this same preset. Switching presets makes the preset's own defaults win.
+    if form.get("rendered_preset") == preset:
+        checked = set(form.getlist("equipment"))
+        for eq in EQUIPMENT:
+            setattr(kitchen, eq, eq in checked)
+    owned: dict[str, dict] = {}
+    for iid in form.getlist("owned_ids"):
+        if iid not in CATALOG_BY_ID:
+            continue
+        qty = _num(form.get(f"owned_qty_{iid}"))
+        unit = (form.get(f"owned_unit_{iid}") or "").strip()
+        owned[iid] = {"qty": qty if qty and qty > 0 else None, "unit": unit or None}
+    # Free-text "+ something else" entries: keep the ones that name a catalog item.
+    by_name = {i.name.lower(): i.id for i in CATALOG}
+    for raw in form.getlist("owned_custom"):
+        iid = by_name.get((raw or "").strip().lower())
+        if iid and iid not in owned:
+            owned[iid] = {"qty": None, "unit": None}
+    w.update(
+        kitchen=kitchen.model_dump(mode="json"), kitchen_preset=preset, owned=owned,
+        dietary_pattern=form.get("dietary_pattern", w["dietary_pattern"]),
+        avoid_allergens=[a for a in form.getlist("avoid_allergens") if a in ALLERGENS],
+    )
+    request.session["wizard"] = w
     user = auth.current_user(request)
-    kitchen = KitchenProfile()
-    owned_prechecked: set[str] = set()
-    owned_amounts: dict[str, dict] = {}   # id -> {qty, unit}, pre-filled from a logged-in pantry
-    if user:
-        prof = storage.get_kitchen_profile(user["id"])
-        if prof:
-            kitchen = KitchenProfile.model_validate(prof)
-        for p in storage.list_pantry(user["id"]):
-            key = p.get("normalized_item_key")
-            if key and key in CATALOG_BY_ID:
-                owned_prechecked.add(key)
-                if p.get("quantity") is not None:
-                    owned_amounts[key] = {"qty": p["quantity"], "unit": p.get("unit") or ""}
-    # Units to offer per ownable (non-pantry) ingredient; every one converts cleanly to grams.
-    unit_options = {i.id: owned_unit_options(i) for i in CATALOG if not i.pantry_staple}
-    return templates.TemplateResponse(request, "form.html", {
-        "catalog": CATALOG, "allergens": ALLERGENS, "kitchen": kitchen,
-        "owned_prechecked": owned_prechecked, "owned_amounts": owned_amounts,
-        "unit_options": unit_options, "logged_in": user is not None,
-    })
+    if ret == "account" and user:
+        storage.save_kitchen_profile(user["id"], kitchen.model_dump(mode="json"))
+        _sync_pantry(user["id"], owned)
+        return RedirectResponse("/account", status_code=303)
+    return RedirectResponse("/plan/new?step=3", status_code=303)
 
 
 def _kitchen_from_form(
@@ -453,81 +618,12 @@ def view_plan(request: Request, plan_id: int):
         "user": user, "rec": rec, "plan": ComputedPlan.model_validate(rec["snapshot"])})
 
 
-@app.get("/settings", response_class=HTMLResponse)
-def settings_form(request: Request):
-    user = auth.current_user(request)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    prof = storage.get_kitchen_profile(user["id"])
-    kitchen = KitchenProfile.model_validate(prof) if prof else KitchenProfile()
-    return templates.TemplateResponse(request, "settings.html", {"user": user, "kitchen": kitchen})
-
-
-@app.post("/settings")
-def save_settings(
-    request: Request,
-    microwave: bool = Form(False), stove: bool = Form(False), oven: bool = Form(False),
-    air_fryer: bool = Form(False), blender: bool = Form(False), rice_cooker: bool = Form(False),
-    freezer: bool = Form(False), mini_fridge: bool = Form(False),
-    no_cook_preferred: bool = Form(False), prioritize_time: bool = Form(False),
-    max_single_session_minutes: int = Form(60), preferred_prep_sessions: int = Form(2),
-):
-    user = auth.current_user(request)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    kitchen = _kitchen_from_form(
-        microwave, stove, oven, air_fryer, blender, rice_cooker, freezer, mini_fridge,
-        no_cook_preferred, prioritize_time, max_single_session_minutes, preferred_prep_sessions)
-    storage.save_kitchen_profile(user["id"], kitchen.model_dump(mode="json"))
-    return RedirectResponse("/settings", status_code=303)
-
-
-@app.get("/pantry", response_class=HTMLResponse)
-def pantry_page(request: Request):
-    user = auth.current_user(request)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    pantry = storage.list_pantry(user["id"])
-    owned_keys = {p["normalized_item_key"] for p in pantry if p["normalized_item_key"]}
-    return templates.TemplateResponse(request, "pantry.html", {
-        "user": user, "pantry": pantry, "catalog": CATALOG, "owned_keys": owned_keys})
-
-
-@app.post("/pantry")
-async def add_pantry(request: Request):
-    user = auth.current_user(request)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    form = await request.form()
-    existing = {p["normalized_item_key"] for p in storage.list_pantry(user["id"])}
-    for iid in form.getlist("add_ids"):           # fast path: catalog checkboxes
-        ing = CATALOG_BY_ID.get(iid)
-        if ing and iid not in existing:
-            storage.add_pantry_item(user["id"], {
-                "item_name": ing.name, "normalized_item_key": iid, "source": "manually_added"})
-    name = (form.get("item_name") or "").strip()  # advanced path: a single detailed item
-    if name:
-        storage.add_pantry_item(user["id"], {
-            "item_name": name, "normalized_item_key": (form.get("normalized_item_key") or None),
-            "quantity": _num(form.get("quantity")), "unit": (form.get("unit") or None),
-            "expiration_date": (form.get("expiration_date") or None),
-            "priority": form.get("priority", "normal"), "source": "manually_added"})
-    return RedirectResponse("/pantry", status_code=303)
-
-
-@app.post("/pantry/{item_id}/delete")
-def delete_pantry(request: Request, item_id: int):
-    user = auth.current_user(request)
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    storage.delete_pantry_item(item_id, user["id"])
-    return RedirectResponse("/pantry", status_code=303)
-
-
-@app.post("/signup", response_class=HTMLResponse)
-def signup(request: Request, email: str = Form(...)):
-    storage.log_event("email_captured", email=email)
-    return templates.TemplateResponse(request, "thanks.html", {})
+# Old standalone kitchen/pantry pages folded into wizard step 2 (kept prefilled for
+# logged-in users; posting with ?return=account persists and returns to the account page).
+@app.get("/settings")
+@app.get("/pantry")
+def legacy_settings_pantry():
+    return RedirectResponse("/plan/new?step=2&return=account", status_code=301)
 
 
 @app.get("/stats")

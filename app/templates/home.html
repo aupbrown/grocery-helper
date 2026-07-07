@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}grocery buddy — eat well on a college budget{% endblock %}
+
+{% block header %}
+<header class="site-head">
+  <a class="logo" href="/">grocery buddy</a>
+  <nav>
+    {% if logged_in %}<a href="/account">Account</a>
+    {% else %}<a href="/login">Log in</a>{% endif %}
+  </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="home-grid">
+  <div style="padding-top:22px">
+    <p class="eyebrow" style="text-transform:none;letter-spacing:0;font-size:15px;font-family:var(--font-display);font-weight:500">Hey, hungry person <span aria-hidden="true">👋</span></p>
+    <h1>Eat well on a college budget. We'll do the math.</h1>
+    <p class="note" style="margin:14px 0 24px">Tell us your budget and goals — we plan a week of cheap, high-protein meals and the exact grocery list to cook them.</p>
+  </div>
+  <div>
+    <div class="benefit-stack">
+      <div class="benefit">
+        <span class="tile" style="background:var(--accent-tint);color:var(--accent-dark)" aria-hidden="true">$</span>
+        <span><strong>Stays under budget</strong> — down to the cent.</span>
+      </div>
+      <div class="benefit">
+        <span class="tile" style="background:var(--tint-sea);color:var(--tint-sea-ink)" aria-hidden="true">P</span>
+        <span><strong>Hits your protein</strong> — sized to your body &amp; goal.</span>
+      </div>
+      <div class="benefit">
+        <span class="tile is-oat" style="background:var(--tint-oat)" aria-hidden="true">🍳</span>
+        <span><strong>Works in your kitchen</strong> — even microwave-only dorms.</span>
+      </div>
+    </div>
+    <a class="btn" href="/plan/new?step=1">Plan my week — it's free</a>
+    <p class="fine" style="text-align:center;margin:12px 0 0">Takes about a minute · no account needed</p>
+  </div>
+</div>
+{% endblock %}

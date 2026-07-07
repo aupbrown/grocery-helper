@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Your kitchen &amp; shelf — grocery buddy{% endblock %}
+{% block body_attrs %} class="narrow"{% endblock %}
+
+{% macro owned_chip(item, w, unit_options) %}
+  {% set amt = w.owned.get(item.id) %}
+  <label class="chip chip-own">
+    <input class="vh" type="checkbox" name="owned_ids" value="{{ item.id }}"{% if amt is not none %} checked{% endif %} data-owned-chip>
+    {{ item.name }}
+  </label>
+{% endmacro %}
+
+{% macro amount_row(item, w, unit_options) %}
+  {% set amt = w.owned.get(item.id) %}
+  <div class="amount-row" id="amount-{{ item.id }}" {% if amt is none %}hidden{% endif %}>
+    <span class="what">{{ item.name }} — how much? <span class="fine">(blank = plenty)</span></span>
+    <input type="number" name="owned_qty_{{ item.id }}" step="any" min="0"
+           value="{{ amt.qty if amt and amt.qty is not none else '' }}"
+           aria-label="Amount of {{ item.name }}">
+    <select name="owned_unit_{{ item.id }}" aria-label="Unit for {{ item.name }}">
+      {% for u in unit_options[item.id] %}
+      <option value="{{ u }}" {% if amt and amt.unit == u %}selected{% endif %}>{{ u }}</option>
+      {% endfor %}
+    </select>
+  </div>
+{% endmacro %}
+
+{% block content %}
+<div class="wizard-top">
+  <a class="back" href="/plan/new?step=1" aria-label="Back to step 1">←</a>
+  <div class="progress-steps" role="progressbar" aria-valuenow="2" aria-valuemin="1" aria-valuemax="3" aria-label="Step 2 of 3">
+    <span class="is-done"></span><span class="is-done"></span><span></span>
+  </div>
+  <span class="count num" aria-hidden="true">2/3</span>
+</div>
+<span class="vh">Step 2 of 3</span>
+
+<h1 style="margin-top:26px">Your kitchen &amp; shelf</h1>
+<p class="note" style="margin-bottom:20px">So we only suggest meals you can actually make — and
+  never charge you for stuff you own.
+  <a href="/plan/new?step=3" style="font-weight:600">Skip, I'll use defaults</a></p>
+
+<form method="post" action="/plan/new?step=2{% if ret %}&return={{ ret }}{% endif %}">
+  <input type="hidden" name="rendered_preset" value="{{ w.kitchen_preset or '' }}">
+
+  <div class="field" style="margin-bottom:14px">
+    <span style="display:block;font-weight:700;font-size:15px;margin-bottom:8px" id="preset-label">Where do you cook?</span>
+    <div class="option-grid-2" role="radiogroup" aria-labelledby="preset-label">
+      {% for p in presets %}
+      <label class="option-card is-left">
+        <input class="vh" type="radio" name="kitchen_preset" value="{{ p.key }}"
+               {% if w.kitchen_preset == p.key %}checked{% endif %}>
+        <span class="emoji" aria-hidden="true">{{ p.emoji }}</span>
+        <span>{{ p.label }}</span>
+        <span class="caption">{{ p.caption }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <details class="fold">
+    <summary>Adjust equipment (microwave, oven, air fryer…)</summary>
+    <div class="fold-body chip-row">
+      {% for eq in equipment %}
+      <label class="chip">
+        <input class="vh" type="checkbox" name="equipment" value="{{ eq }}"
+               {% if kitchen[eq] %}checked{% endif %}>
+        {{ equipment_labels[eq]|capitalize }}
+      </label>
+      {% endfor %}
+    </div>
+  </details>
+
+  <div class="field" style="margin-bottom:0">
+    <span style="display:block;font-weight:700;font-size:15px;margin-bottom:4px">Already have any of these?</span>
+    <p class="fine" style="margin-bottom:10px">Tap what's on your shelf. We'll use it first and take it off your bill.</p>
+    <div class="chip-row" style="margin-bottom:4px">
+      {% for item in front_items %}{{ owned_chip(item, w, unit_options) }}{% endfor %}
+      <button class="chip chip-add" type="button" data-add-own>+ something else</button>
+    </div>
+    {% for item in front_items %}{{ amount_row(item, w, unit_options) }}{% endfor %}
+  </div>
+
+  <details class="fold" style="margin-top:12px">
+    <summary>More ingredients you might own</summary>
+    <div class="fold-body">
+      <div class="chip-row">
+        {% for item in rest_items %}{{ owned_chip(item, w, unit_options) }}{% endfor %}
+      </div>
+      {% for item in rest_items %}{{ amount_row(item, w, unit_options) }}{% endfor %}
+    </div>
+  </details>
+
+  <details class="fold" style="margin-bottom:24px">
+    <summary>Diet &amp; allergies (vegetarian, gluten-free…)</summary>
+    <div class="fold-body">
+      <label for="diet">Dietary pattern
+        <select id="diet" name="dietary_pattern">
+          <option value="none" {% if w.dietary_pattern == 'none' %}selected{% endif %}>No restriction</option>
+          <option value="vegetarian" {% if w.dietary_pattern == 'vegetarian' %}selected{% endif %}>Vegetarian</option>
+          <option value="vegan" {% if w.dietary_pattern == 'vegan' %}selected{% endif %}>Vegan</option>
+        </select>
+      </label>
+      <span style="display:block;font-weight:700;font-size:15px;margin:16px 0 8px">Avoid allergens</span>
+      <div class="chip-row">
+        {% for a in allergens %}
+        <label class="chip">
+          <input class="vh" type="checkbox" name="avoid_allergens" value="{{ a }}"
+                 {% if a in w.avoid_allergens %}checked{% endif %}>
+          {{ a }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </details>
+
+  <button class="btn" type="submit">
+    {% if ret == 'account' %}Save my kitchen{% else %}Next: your targets →{% endif %}
+  </button>
+</form>
+{% endblock %}

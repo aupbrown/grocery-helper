@@ -6,10 +6,51 @@ from app.models import Goal, GeneratedPlan, Meal, MealIngredient
 client = TestClient(main.app)
 
 
-def test_get_form():
+def test_home_is_coach_landing():
     r = client.get("/")
     assert r.status_code == 200
-    assert "Weekly budget" in r.text
+    assert "Eat well on a college budget" in r.text
+    assert "/plan/new?step=1" in r.text
+    assert "no account needed" in r.text
+
+
+def test_wizard_step1_roundtrip():
+    c = TestClient(main.app)
+    r = c.post("/plan/new?step=1", data={
+        "weekly_budget": "45", "goal": "cut", "bodyweight_lb": "160",
+        "max_cook_minutes": "90", "activity_level": "active"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/plan/new?step=2"
+    r2 = c.get("/plan/new?step=2")
+    assert r2.status_code == 200
+    assert "Your kitchen" in r2.text
+    # Back-nav re-renders step 1 with the session's values, not defaults.
+    r_back = c.get("/plan/new?step=1")
+    assert 'value="45"' in r_back.text
+
+
+def test_wizard_step2_stores_kitchen_and_owned():
+    c = TestClient(main.app)
+    c.post("/plan/new?step=1", data={
+        "weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "170",
+        "max_cook_minutes": "120", "activity_level": "light"})
+    r = c.post("/plan/new?step=2", data={
+        "kitchen_preset": "dorm", "rendered_preset": "apartment",
+        "owned_ids": "rice_white", "owned_qty_rice_white": "4",
+        "owned_unit_rice_white": "cup"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/plan/new?step=3"
+    # Re-render shows the chip checked and the amount row prefilled.
+    r2 = c.get("/plan/new?step=2")
+    assert 'value="rice_white" checked' in r2.text
+    assert 'value="4' in r2.text
+
+
+def test_settings_and_pantry_redirect_to_wizard():
+    for path in ("/settings", "/pantry"):
+        r = client.get(path, follow_redirects=False)
+        assert r.status_code == 301
+        assert r.headers["location"] == "/plan/new?step=2&return=account"
 
 
 def test_post_targets_computes_defaults():
@@ -171,8 +212,3 @@ def test_plan_partial_ownership_shows_buy_the_rest_note(monkeypatch):
     assert "owned_grams_json" in r.text          # threaded into the regenerate/register forms
 
 
-def test_post_signup_thanks(monkeypatch):
-    monkeypatch.setattr(main.storage, "log_event", lambda *a, **k: None)
-    r = client.post("/signup", data={"email": "student@example.com"})
-    assert r.status_code == 200
-    assert "Thanks" in r.text

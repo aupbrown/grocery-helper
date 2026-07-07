@@ -166,6 +166,10 @@
     });
   });
 
+  /* Reopen a sheet the server flagged (e.g. save-sheet validation error) ---- */
+  var auto = $('dialog[data-open-on-load]');
+  if (auto && auto.showModal) auto.showModal();
+
   /* 8 · Feedback dialog (first save only) ----------------------------------- */
   var fb = $('dialog[data-feedback]');
   if (fb && fb.showModal) {

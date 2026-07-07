@@ -254,66 +254,12 @@ async def wizard_post(request: Request, step: int = 1,
     return RedirectResponse("/plan/new?step=3", status_code=303)
 
 
-def _parse_kitchen(kitchen_json: str) -> KitchenProfile:
-    """Rebuild the KitchenProfile carried as a hidden field; fall back to a default kitchen."""
-    return KitchenProfile.model_validate_json(kitchen_json) if kitchen_json else KitchenProfile()
-
-
 def _num(s) -> float | None:
     """Parse an optional numeric form field; blank/invalid -> None."""
     try:
         return float(s) if s not in (None, "") else None
     except (TypeError, ValueError):
         return None
-
-
-def _parse_owned_grams(owned_grams_json: str) -> dict[str, float]:
-    """Decode the {id: grams} hidden field carried through the form -> targets -> plan hop."""
-    if not owned_grams_json:
-        return {}
-    try:
-        data = json.loads(owned_grams_json)
-    except (ValueError, TypeError):
-        return {}
-    out: dict[str, float] = {}
-    if isinstance(data, dict):
-        for k, v in data.items():
-            g = _num(v)
-            if k in CATALOG_BY_ID and g is not None and g > 0:
-                out[k] = g
-    return out
-
-
-def _owned_grams_from_form(form, owned_ids) -> dict[str, float]:
-    """Read the per-ingredient amount + unit fields the user filled in and convert each to grams."""
-    out: dict[str, float] = {}
-    for iid in owned_ids:
-        ing = CATALOG_BY_ID.get(iid)
-        if not ing:
-            continue
-        qty = _num(form.get(f"owned_qty_{iid}"))
-        unit = (form.get(f"owned_unit_{iid}") or "").strip()
-        if qty is None or qty <= 0 or not unit:
-            continue                       # no amount given -> "have enough" (skip entirely)
-        grams = to_grams(qty, unit, ing)
-        if grams and grams > 0:
-            out[iid] = round(grams, 1)
-    return out
-
-
-def _plan_inputs(*, weekly_budget, goal, bodyweight_lb, activity_level, max_cook_minutes,
-                 dietary_pattern, avoid_allergens, owned_ingredient_ids, target_calories,
-                 target_protein, target_carbs, target_fat, kitchen_json,
-                 owned_grams=None) -> PlanInputs:
-    """Assemble PlanInputs from the form fields shared by /plan, /regenerate, and /register."""
-    return PlanInputs(
-        weekly_budget=weekly_budget, goal=goal, bodyweight_lb=bodyweight_lb,
-        activity_level=activity_level, max_cook_minutes=max_cook_minutes,
-        dietary_pattern=dietary_pattern, avoid_allergens=avoid_allergens,
-        owned_ingredient_ids=owned_ingredient_ids, owned_grams=owned_grams or {},
-        target_calories=target_calories,
-        target_protein=target_protein, target_carbs=target_carbs, target_fat=target_fat,
-        kitchen=_parse_kitchen(kitchen_json))
 
 
 # --- Async generation (§5): snapshot inputs -> background job -> poll -> /plan ---
@@ -428,6 +374,11 @@ def plan_page(request: Request):
         return RedirectResponse("/plan/generating", status_code=303)
     if job.state == "failed":
         return RedirectResponse("/plan/failed", status_code=303)
+    return _render_plan(request, job)
+
+
+def _render_plan(request: Request, job: jobs.Job, save_error: str | None = None,
+                 save_email: str = "", open_save: str | None = None):
     over_budget = job.over_budget and not job.keep_anyway
     recovery = None
     if over_budget:
@@ -447,6 +398,7 @@ def plan_page(request: Request):
         "plan_key": job.id,
         "icons": SLOT_ICONS, "tints": SLOT_TINTS,
         "logged_in": "user_id" in request.session,
+        "save_error": save_error, "save_email": save_email, "open_save": open_save,
     })
 
 
@@ -546,44 +498,28 @@ def _plan_record(inputs: PlanInputs, computed: ComputedPlan, validation, plan_ki
     }
 
 
-def _save_current_plan(user_id: int, form) -> int:
-    """Reconstruct the chosen plan from the results-page form fields and persist it."""
-    inputs = _plan_inputs(
-        weekly_budget=float(form["weekly_budget"]), goal=Goal(form["goal"]),
-        bodyweight_lb=float(form["bodyweight_lb"]),
-        activity_level=form.get("activity_level", "light"),
-        max_cook_minutes=int(form["max_cook_minutes"]),
-        dietary_pattern=form.get("dietary_pattern", "none"),
-        avoid_allergens=form.getlist("avoid_allergens"),
-        owned_ingredient_ids=form.getlist("owned_ingredient_ids"),
-        owned_grams=_parse_owned_grams(form.get("owned_grams_json", "")),
-        target_calories=float(form["target_calories"]), target_protein=float(form["target_protein"]),
-        target_carbs=float(form["target_carbs"]), target_fat=float(form["target_fat"]),
-        kitchen_json=form.get("kitchen_json", ""))
-    plan_kind = form.get("plan_kind", "budget")
-    base_json = form.get("budget_base_json") if plan_kind == "budget" \
-        else form.get("protein_base_json")
-    base = GeneratedPlan.model_validate_json(base_json)
-    cap = inputs.weekly_budget if plan_kind == "budget" else None
-    filtered_by_id = catalog_by_id(filter_catalog(CATALOG, inputs.dietary_pattern,
-                                                  inputs.avoid_allergens))
-    computed, validation = jobs.finalize(base, inputs, filtered_by_id, cap)
-    return storage.save_plan(user_id, _plan_record(inputs, computed, validation, plan_kind))
+def _save_job_plan(user_id: int, job: jobs.Job, plan_kind: str) -> int:
+    """Finalize the chosen variant from the job store and persist it."""
+    if plan_kind not in ("budget", "protein"):
+        plan_kind = "budget"
+    base = job.budget_base if plan_kind == "budget" else job.protein_base
+    cap = job.inputs.weekly_budget if plan_kind == "budget" else None
+    filtered_by_id = catalog_by_id(filter_catalog(CATALOG, job.inputs.dietary_pattern,
+                                                  job.inputs.avoid_allergens))
+    computed, validation = jobs.finalize(base, job.inputs, filtered_by_id, cap)
+    return storage.save_plan(user_id, _plan_record(job.inputs, computed, validation, plan_kind))
 
 
-def _persist_owned_to_pantry(user_id: int, form) -> None:
-    """Save a registering guest's entered owned amounts to their pantry (as grams) so the generate
-    form pre-fills them next week. Best-effort and idempotent against already-saved catalog items."""
-    owned = _parse_owned_grams(form.get("owned_grams_json", ""))
-    if not owned:
+def _persist_wizard(user_id: int, w: dict | None) -> None:
+    """Best-effort: remember a newly registered user's kitchen + pantry for next week."""
+    if not w:
         return
-    existing = {p.get("normalized_item_key") for p in storage.list_pantry(user_id)}
-    for iid, grams in owned.items():
-        if iid in existing:
-            continue
-        storage.add_pantry_item(user_id, {
-            "item_name": CATALOG_BY_ID[iid].name, "normalized_item_key": iid,
-            "quantity": grams, "unit": "g", "source": "generate_form"})
+    try:
+        if w.get("kitchen"):
+            storage.save_kitchen_profile(user_id, w["kitchen"])
+        _sync_pantry(user_id, w.get("owned") or {})
+    except Exception:
+        pass
 
 
 def _auth_page(request: Request, error: str | None = None, email: str = ""):
@@ -609,30 +545,50 @@ async def login(request: Request):
 
 @app.post("/register")
 async def register(request: Request):
+    """Create an account from the save sheet (A7) and save the chosen plan in one step."""
     form = await request.form()
     email = (form.get("email") or "").strip()
     password = form.get("password") or ""
+    plan_kind = form.get("plan_kind", "budget")
+    job = jobs.get(request.session.get("job_id"))
+
     err = auth.validate_credentials(email, password)
-    if err:
-        return _auth_page(request, error=err, email=email)
-    try:
-        user_id = storage.create_user(email, auth.hash_password(password))
-    except storage.EmailTaken:
-        return _auth_page(request, error="That email already has an account — log in instead.",
-                          email=email)
-    auth.login(request, user_id)
-    # Save the plan that was on the results page, if one came along. Best-effort: a malformed
-    # plan shouldn't undo the account creation.
-    if form.get("budget_base_json") or form.get("protein_base_json"):
+    user_id = None
+    if not err:
         try:
-            _save_current_plan(user_id, form)
+            user_id = storage.create_user(email, auth.hash_password(password))
+        except storage.EmailTaken:
+            err = "That email already has an account — log in instead."
+    if err:
+        if job is not None and job.state == "done":
+            return _render_plan(request, job, save_error=err, save_email=email,
+                                open_save=plan_kind)
+        return _auth_page(request, error=err, email=email)
+
+    auth.login(request, user_id)
+    plan_id = None
+    if job is not None and job.state == "done":
+        try:   # a malformed plan shouldn't undo the account creation
+            plan_id = _save_job_plan(user_id, job, plan_kind)
         except Exception:
             pass
-    try:
-        _persist_owned_to_pantry(user_id, form)
-    except Exception:
-        pass
-    return RedirectResponse("/account", status_code=303)
+    _persist_wizard(user_id, request.session.get("wizard"))
+    request.session["fb_pending"] = True     # first save → feedback dialog on the next page
+    return RedirectResponse(f"/plans/{plan_id}" if plan_id else "/account", status_code=303)
+
+
+@app.post("/plans/save")
+async def save_week(request: Request):
+    """One-tap save for logged-in users (no A7 sheet)."""
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    job = jobs.get(request.session.get("job_id"))
+    if job is None or job.state != "done":
+        return RedirectResponse("/plan", status_code=303)
+    form = await request.form()
+    plan_id = _save_job_plan(user["id"], job, form.get("plan_kind", "budget"))
+    return RedirectResponse(f"/plans/{plan_id}", status_code=303)
 
 
 @app.post("/logout")
@@ -646,8 +602,16 @@ def account(request: Request):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
-    return templates.TemplateResponse(request, "account.html",
-                                      {"user": user, "plans": storage.list_plans(user["id"])})
+    local = user["email"].split("@")[0]
+    first_name = (local.split(".")[0] or "there").capitalize()
+    pantry_count = len(storage.list_pantry(user["id"]))
+    return templates.TemplateResponse(request, "account.html", {
+        "user": user, "plans": storage.list_plans(user["id"]),
+        "first_name": first_name, "initial": first_name[:1].upper(),
+        "pantry_count": pantry_count,
+        "starter_chips": [CATALOG_BY_ID[i].name for i in STARTER_OWNED[:3]
+                          if i in CATALOG_BY_ID],
+    })
 
 
 @app.get("/plans/{plan_id}", response_class=HTMLResponse)

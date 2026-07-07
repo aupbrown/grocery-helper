@@ -1,28 +1,32 @@
-<!doctype html>
-<html>
-<head>
-  {% set page_title = "Log in" %}
-  {% include "_head.html" %}
-</head>
-<body>
-<main>
-  <h1>Log in</h1>
-  {% if error %}<p class="over">{{ error }}</p>{% endif %}
-  <form method="post" action="/login">
-    <label>Email <input type="email" name="email" value="{{ email }}" required></label>
-    <label>Password <input type="password" name="password" required></label>
-    <button type="submit">Log in</button>
-  </form>
+{% extends "base.html" %}
+{% block title %}Log in — grocery buddy{% endblock %}
+{% block body_attrs %} class="narrow"{% endblock %}
 
-  <h2>New here?</h2>
-  <p class="note">Create an account to save plans, track what you eat, and repair your week.</p>
-  <form method="post" action="/register">
-    <label>Email <input type="email" name="email" required></label>
-    <label>Password <input type="password" name="password" minlength="8" required></label>
-    <button type="submit">Create account</button>
-  </form>
+{% block header %}
+<header class="site-head">
+  <a class="logo" href="/">grocery buddy</a>
+  <nav><a href="/">← Back</a></nav>
+</header>
+{% endblock %}
 
-  <p><a href="/">Back to the planner</a></p>
-</main>
-</body>
-</html>
+{% block content %}
+<h1 style="margin-top:34px">Welcome back <span aria-hidden="true">👋</span></h1>
+<p class="note" style="margin-bottom:22px">Your pantry and saved weeks are waiting.</p>
+
+<form method="post" action="/login">
+  <label style="font-size:14.5px;margin-bottom:14px">Email
+    <input type="email" name="email" placeholder="you@school.edu" required
+           autocomplete="email" value="{{ email or '' }}"
+           {% if error %}aria-describedby="login-err"{% endif %}>
+  </label>
+  <label style="font-size:14.5px;margin-bottom:6px">Password
+    <input type="password" name="password" required autocomplete="current-password">
+  </label>
+  {% if error %}<p class="field-error" id="login-err">{{ error }}</p>{% endif %}
+  <button class="btn" type="submit" style="margin-top:20px">Log in</button>
+</form>
+
+<div class="divider">NEW HERE?</div>
+<a class="btn btn-secondary" href="/plan/new?step=1">Plan a week first — no account needed</a>
+<p class="fine" style="text-align:center;margin:12px 0 0">You can create an account when you save it.</p>
+{% endblock %}

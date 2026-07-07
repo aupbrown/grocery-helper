@@ -1,14 +1,42 @@
-{# Save-week sheet (A7). Fleshed out with the account form in the save/account task;
-   until then guests get the pitch + login link. Context: v, logged_in #}
-<dialog class="sheet" id="save-{{ v.kind }}" aria-label="Save this week" style="position:relative">
+{# Save-week sheet (A7): guests create an account + save in one step; logged-in users
+   one-tap save. Context: v, logged_in, save_error, save_email, open_save #}
+<dialog class="sheet" id="save-{{ v.kind }}" aria-label="Save this week"
+        style="position:relative"{% if open_save == v.kind %} data-open-on-load{% endif %}>
   <div class="grab" aria-hidden="true"></div>
   <button class="sheet-close" type="button" data-sheet-close aria-label="Close">✕</button>
+  {% if logged_in %}
+  <h2 style="font-size:24px;margin-bottom:6px">Save this week</h2>
+  <p class="note" style="font-size:14.5px;margin-bottom:18px">It lands in your saved weeks —
+    with mid-week fixes if prices or your pantry change.</p>
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:16px;font-size:14px">
+    <strong>Saving:</strong> {{ v.label }} · <span class="num">${{ "%.2f"|format(v.data.total_cost) }}</span>
+  </div>
+  <form method="post" action="/plans/save">
+    <input type="hidden" name="plan_kind" value="{{ v.kind }}">
+    <button class="btn" type="submit">Save week</button>
+  </form>
+  {% else %}
   <h2 style="font-size:24px;margin-bottom:6px">Keep this week <span aria-hidden="true">🔒</span></h2>
   <p class="note" style="font-size:14.5px;margin-bottom:18px">One account, three perks: this plan
     saved, your pantry remembered for next week, and mid-week fixes when life happens.</p>
   <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:16px;font-size:14px">
     <strong>Saving:</strong> {{ v.label }} · <span class="num">${{ "%.2f"|format(v.data.total_cost) }}</span>
   </div>
-  <a class="btn" href="/login">Log in to save it</a>
-  <p class="fine" style="text-align:center;margin:12px 0 0">Account creation lands right here soon.</p>
+  <form method="post" action="/register">
+    <input type="hidden" name="plan_kind" value="{{ v.kind }}">
+    <label style="font-size:14.5px;margin-bottom:14px">School email
+      <input type="email" name="email" placeholder="you@school.edu" required
+             autocomplete="email" value="{{ save_email or '' }}"
+             {% if save_error %}aria-describedby="save-err-{{ v.kind }}"{% endif %}>
+    </label>
+    <label style="font-size:14.5px;margin-bottom:6px">Password
+      <input type="password" name="password" placeholder="8+ characters" minlength="8"
+             required autocomplete="new-password">
+    </label>
+    {% if save_error %}<p class="field-error" id="save-err-{{ v.kind }}">{{ save_error }}</p>{% endif %}
+    <button class="btn" type="submit" style="margin-top:18px">Create account &amp; save</button>
+  </form>
+  <p style="text-align:center;font-size:14px;color:var(--muted);margin:14px 0 0">Have an account?
+    <a href="/login" style="font-weight:700">Log in instead</a></p>
+  {% endif %}
 </dialog>

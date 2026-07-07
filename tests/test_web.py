@@ -336,3 +336,116 @@ def test_recover_swap_priciest_pins_other_meals(monkeypatch):
     assert "Lentil bowls" in budget_panel            # priciest slot regenerated
     assert "Cheap oats" in budget_panel              # cheap meal kept pinned
     assert "Salmon feast" not in budget_panel
+
+
+def test_login_page_offers_plan_first_path():
+    r = client.get("/login")
+    assert r.status_code == 200
+    assert "Welcome back" in r.text
+    assert "Plan a week first" in r.text            # guest path stays primary
+    assert "create an account when you save" in r.text
+
+
+def _stub_accounts(monkeypatch, saved):
+    monkeypatch.setattr(main.storage, "create_user", lambda e, h: 7)
+    monkeypatch.setattr(main.storage, "get_user",
+                        lambda uid: {"id": 7, "email": "sam@school.edu"})
+    monkeypatch.setattr(main.storage, "save_plan",
+                        lambda uid, rec: saved.update(uid=uid, rec=rec) or 99)
+    monkeypatch.setattr(main.storage, "save_kitchen_profile", lambda uid, prof: None)
+    monkeypatch.setattr(main.storage, "list_pantry", lambda uid: [])
+    monkeypatch.setattr(main.storage, "add_pantry_item", lambda uid, item: 1)
+    monkeypatch.setattr(main.storage, "delete_pantry_item", lambda iid, uid: None)
+    monkeypatch.setattr(main.storage, "list_plans", lambda uid: [])
+
+
+def test_register_from_save_sheet_saves_job_plan(monkeypatch):
+    fake = GeneratedPlan(meals=[
+        Meal(name="Chicken & rice", slot="dinner", cook_time_minutes=20, servings=7,
+             instructions="1. Cook.", ingredients=[
+                 MealIngredient(ingredient_id="chicken_breast", grams=1500),
+                 MealIngredient(ingredient_id="rice_white", grams=1500)])])
+    c = _generate_plan(monkeypatch, fake)
+    saved = {}
+    _stub_accounts(monkeypatch, saved)
+    r = c.post("/register", data={"email": "sam@school.edu", "password": "secret123",
+                                  "plan_kind": "budget"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/plans/99"     # straight to the saved week
+    assert saved["uid"] == 7
+    assert saved["rec"]["weekly_budget"] == 40
+    assert saved["rec"]["snapshot"]["meals"]        # full plan snapshot persisted
+
+
+def test_register_error_reopens_save_sheet(monkeypatch):
+    fake = GeneratedPlan(meals=[
+        Meal(name="Oats", slot="breakfast", cook_time_minutes=0, servings=7,
+             instructions="1. Soak.", ingredients=[
+                 MealIngredient(ingredient_id="oats", grams=700)])])
+    c = _generate_plan(monkeypatch, fake)
+    r = c.post("/register", data={"email": "sam@school.edu", "password": "short",
+                                  "plan_kind": "budget"})
+    assert r.status_code == 200
+    assert "at least 8 characters" in r.text        # inline error
+    assert "data-open-on-load" in r.text            # sheet reopens
+    assert 'value="sam@school.edu"' in r.text       # input never cleared
+
+
+def _login(c, monkeypatch):
+    monkeypatch.setattr(main.storage, "get_user_by_email",
+                        lambda e: {"id": 7, "email": "sam@school.edu", "password_hash": "h"})
+    monkeypatch.setattr(main.auth, "verify_password", lambda p, h: True)
+    monkeypatch.setattr(main.storage, "get_user",
+                        lambda uid: {"id": 7, "email": "sam@school.edu"})
+    c.post("/login", data={"email": "sam@school.edu", "password": "whatever1"})
+
+
+def test_account_renders_saved_weeks_with_badges(monkeypatch):
+    import datetime
+    c = TestClient(main.app)
+    _login(c, monkeypatch)
+    now = datetime.datetime(2026, 7, 1)
+    monkeypatch.setattr(main.storage, "list_plans", lambda uid: [
+        {"id": 1, "created_at": now, "goal": "maintain", "weekly_budget": 40,
+         "estimated_total_cost": 37.86, "protein_target": 136, "calorie_target": 2200,
+         "status": "active", "validation_status": "valid", "week_start_date": None},
+        {"id": 2, "created_at": now, "goal": "maintain", "weekly_budget": 40,
+         "estimated_total_cost": 41.02, "protein_target": 145, "calorie_target": 2200,
+         "status": "active", "validation_status": "invalid", "week_start_date": None},
+    ])
+    monkeypatch.setattr(main.storage, "list_pantry", lambda uid: [
+        {"id": 1, "item_name": "White rice", "normalized_item_key": "rice_white",
+         "quantity": None, "unit": None}])
+    r = c.get("/account")
+    assert r.status_code == 200
+    assert "Welcome back, Sam" in r.text
+    assert "✓ ready" in r.text and "needs fixes" in r.text
+    assert "Plan a new week" in r.text
+    assert "1 item" in r.text                      # pantry line
+
+
+def test_account_empty_states(monkeypatch):
+    c = TestClient(main.app)
+    _login(c, monkeypatch)
+    monkeypatch.setattr(main.storage, "list_plans", lambda uid: [])
+    monkeypatch.setattr(main.storage, "list_pantry", lambda uid: [])
+    r = c.get("/account")
+    assert "No weeks saved yet" in r.text
+    assert "Nothing on your shelf" in r.text
+    assert "Plan my first week" in r.text
+
+
+def test_logged_in_one_tap_save(monkeypatch):
+    fake = GeneratedPlan(meals=[
+        Meal(name="Oats", slot="breakfast", cook_time_minutes=0, servings=7,
+             instructions="1. Soak.", ingredients=[
+                 MealIngredient(ingredient_id="oats", grams=700)])])
+    c = _generate_plan(monkeypatch, fake)
+    _login(c, monkeypatch)
+    saved = {}
+    monkeypatch.setattr(main.storage, "save_plan",
+                        lambda uid, rec: saved.update(uid=uid) or 55)
+    r = c.post("/plans/save", data={"plan_kind": "protein"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/plans/55"
+    assert saved["uid"] == 7

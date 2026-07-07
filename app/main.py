@@ -428,15 +428,61 @@ def plan_page(request: Request):
         return RedirectResponse("/plan/generating", status_code=303)
     if job.state == "failed":
         return RedirectResponse("/plan/failed", status_code=303)
+    over_budget = job.over_budget and not job.keep_anyway
+    recovery = None
+    if over_budget:
+        by_id = catalog_by_id(filter_catalog(CATALOG, job.inputs.dietary_pattern,
+                                             job.inputs.avoid_allergens))
+        slot = jobs.priciest_slot(job.budget_base, by_id)
+        priciest = next((m.name for m in job.budget_base.meals if m.slot == slot), "the priciest")
+        recovery = {"priciest_name": priciest,
+                    "new_protein": max(60, round(job.inputs.target_protein) - 10),
+                    "new_budget": round(job.inputs.weekly_budget) + 5}
     return templates.TemplateResponse(request, "plan.html", {
         "variants": [_variant(job, "budget"), _variant(job, "protein")],
         "inputs": job.inputs,
-        "over_budget": job.over_budget and not job.keep_anyway,
+        "over_budget": over_budget,
+        "recovery": recovery,
         "owned_names": _owned_names(job.inputs),
         "plan_key": job.id,
         "icons": SLOT_ICONS, "tints": SLOT_TINTS,
         "logged_in": "user_id" in request.session,
     })
+
+
+@app.post("/plan/recover")
+async def plan_recover(request: Request):
+    """A12 recovery actions: mutate the stored inputs and re-queue generation (or keep as-is)."""
+    job = jobs.get(request.session.get("job_id"))
+    if job is None:
+        return RedirectResponse("/plan", status_code=303)
+    form = await request.form()
+    action = form.get("action")
+    if action == "keep":
+        job.keep_anyway = True
+        return RedirectResponse("/plan", status_code=303)
+
+    inputs = job.inputs.model_copy(deep=True)
+    w = _wizard(request)
+    if action == "relax_protein":
+        inputs.target_protein = max(60, inputs.target_protein - 10)
+        w.setdefault("targets", {})["protein"] = inputs.target_protein
+        request.session["wizard"] = w
+        request.session["job_id"] = jobs.start(inputs, CATALOG)
+    elif action == "raise_budget":
+        inputs.weekly_budget += 5
+        w["weekly_budget"] = inputs.weekly_budget
+        request.session["wizard"] = w
+        request.session["job_id"] = jobs.start(inputs, CATALOG)
+    elif action == "swap_priciest":
+        by_id = catalog_by_id(filter_catalog(CATALOG, inputs.dietary_pattern,
+                                             inputs.avoid_allergens))
+        slot = jobs.priciest_slot(job.budget_base, by_id)
+        request.session["job_id"] = jobs.start(inputs, CATALOG, pinned=job.budget_base,
+                                               swap_slot=slot, protein_base=job.protein_base)
+    else:
+        return RedirectResponse("/plan", status_code=303)
+    return RedirectResponse("/plan/generating", status_code=303)
 
 
 @app.post("/regenerate", response_class=HTMLResponse)

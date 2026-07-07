@@ -269,3 +269,70 @@ def test_plan_partial_ownership_shows_buy_the_rest_note(monkeypatch):
     assert r.status_code == 200
     assert "buying only the rest" in r.text      # partial-ownership note rendered
     assert "you own some" in r.text              # shopping-list badge
+
+
+def _expensive_plan():
+    # ~4.2kg of salmon fillet blows well past a $40 weekly budget.
+    return GeneratedPlan(meals=[
+        Meal(name="Salmon feast", slot="dinner", cook_time_minutes=20, servings=7,
+             instructions="1. Sear the salmon.", ingredients=[
+                 MealIngredient(ingredient_id="salmon_fillet", grams=4200),
+                 MealIngredient(ingredient_id="rice_white", grams=1400)])])
+
+
+def test_over_budget_plan_shows_recovery_cards(monkeypatch):
+    # Pin adjust_to_targets so the budget pass can't shrink the plan under the cap.
+    monkeypatch.setattr(jobs, "adjust_to_targets", lambda gen, *a, **k: gen)
+    c = _generate_plan(monkeypatch, _expensive_plan())
+    assert c.get("/plan/status").json()["over_budget"] is True
+    r = c.get("/plan")
+    assert "is-warn" in r.text                       # warn summary band
+    assert "over budget" in r.text.lower()
+    assert r.text.count("action-card") >= 3          # three recovery options
+    assert "Swap the priciest meal" in r.text
+    assert "Relax protein to 170g" in r.text         # 180 - 10
+    assert "Bump budget to $45" in r.text            # 40 + 5
+    assert "keep this plan anyway" in r.text
+
+
+def test_recover_raise_budget_requeues_with_more_money(monkeypatch):
+    monkeypatch.setattr(jobs, "adjust_to_targets", lambda gen, *a, **k: gen)
+    c = _generate_plan(monkeypatch, _expensive_plan())
+    r = c.post("/plan/recover", data={"action": "raise_budget"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/plan/generating"
+    r2 = c.get("/plan")
+    assert "of $45" in r2.text                       # band reflects the new budget
+
+
+def test_recover_keep_anyway_hides_recovery(monkeypatch):
+    monkeypatch.setattr(jobs, "adjust_to_targets", lambda gen, *a, **k: gen)
+    c = _generate_plan(monkeypatch, _expensive_plan())
+    r = c.post("/plan/recover", data={"action": "keep"}, follow_redirects=False)
+    assert r.headers["location"] == "/plan"
+    r2 = c.get("/plan")
+    assert "Swap the priciest meal" not in r2.text   # cards gone
+    assert "is-warn" in r2.text                      # band still honest about the overage
+
+
+def test_recover_swap_priciest_pins_other_meals(monkeypatch):
+    monkeypatch.setattr(jobs, "adjust_to_targets", lambda gen, *a, **k: gen)
+    two_meals = GeneratedPlan(meals=[
+        Meal(name="Cheap oats", slot="breakfast", cook_time_minutes=0, servings=7,
+             instructions="1. Soak.", ingredients=[
+                 MealIngredient(ingredient_id="oats", grams=700)]),
+        Meal(name="Salmon feast", slot="dinner", cook_time_minutes=20, servings=7,
+             instructions="1. Sear.", ingredients=[
+                 MealIngredient(ingredient_id="salmon_fillet", grams=4200)])])
+    fresh = Meal(name="Lentil bowls", slot="dinner", cook_time_minutes=25, servings=7,
+                 instructions="1. Simmer.", ingredients=[
+                     MealIngredient(ingredient_id="lentils", grams=1400),
+                     MealIngredient(ingredient_id="rice_white", grams=1400)])
+    c = _generate_plan(monkeypatch, two_meals)
+    monkeypatch.setattr(jobs, "generate_one", lambda *a, **k: fresh)
+    c.post("/plan/recover", data={"action": "swap_priciest"})
+    r = c.get("/plan")
+    budget_panel = r.text.split('id="panel-protein"')[0]
+    assert "Lentil bowls" in budget_panel            # priciest slot regenerated
+    assert "Cheap oats" in budget_panel              # cheap meal kept pinned
+    assert "Salmon feast" not in budget_panel

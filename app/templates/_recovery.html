@@ -1,0 +1,38 @@
+{# Over-budget recovery (A12): three ways out, never a dead end. Context: recovery, inputs #}
+<div style="padding:20px 0 0">
+  <p class="note" style="font-size:14.5px;margin-bottom:14px">Your protein target is ambitious
+    for ${{ "%.0f"|format(inputs.weekly_budget) }}. Three ways out — pick one:</p>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <form method="post" action="/plan/recover" style="display:contents">
+      <input type="hidden" name="action" value="swap_priciest">
+      <button class="action-card" type="submit">
+        <span class="tile" aria-hidden="true">🔁</span>
+        <span><span class="title">Swap the priciest meal</span>
+          <span class="sub">{{ recovery.priciest_name }} → something cheaper, rest untouched</span></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </button>
+    </form>
+    <form method="post" action="/plan/recover" style="display:contents">
+      <input type="hidden" name="action" value="relax_protein">
+      <button class="action-card" type="submit">
+        <span class="tile" aria-hidden="true">💪</span>
+        <span><span class="title">Relax protein to {{ recovery.new_protein }}g</span>
+          <span class="sub">still solid for {{ inputs.goal.value }}ing — frees up real money</span></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </button>
+    </form>
+    <form method="post" action="/plan/recover" style="display:contents">
+      <input type="hidden" name="action" value="raise_budget">
+      <button class="action-card" type="submit">
+        <span class="tile" aria-hidden="true">💵</span>
+        <span><span class="title">Bump budget to ${{ recovery.new_budget }}</span>
+          <span class="sub">keep everything as-is</span></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </button>
+    </form>
+  </div>
+  <form method="post" action="/plan/recover" style="text-align:center;margin:16px 0 0">
+    <input type="hidden" name="action" value="keep">
+    <button class="linklike" type="submit">or keep this plan anyway →</button>
+  </form>
+</div>

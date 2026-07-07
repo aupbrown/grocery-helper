@@ -18,7 +18,7 @@ from app.generator import generate, generate_one
 from app.plan import compute_plan, adjust_to_targets, reconcile_seasonings, snap_units
 from app.validate import validate_plan
 from app.units import to_grams, owned_unit_options
-from app import storage, auth
+from app import storage, auth, jobs
 
 # Load .env so GEMINI_API_KEY and DATABASE_URL are available under `uvicorn`.
 load_dotenv()
@@ -317,6 +317,76 @@ def _plan_inputs(*, weekly_budget, goal, bodyweight_lb, activity_level, max_cook
         target_calories=target_calories,
         target_protein=target_protein, target_carbs=target_carbs, target_fat=target_fat,
         kitchen=_parse_kitchen(kitchen_json))
+
+
+# --- Async generation (§5): snapshot inputs -> background job -> poll -> /plan ---
+
+STATUS_LINES = [
+    "Comparing chicken thighs vs. lentils 🐔⚖️🫘",
+    "Pricing whole packages — no fantasy grams 🏷️",
+    "Checking your kitchen can actually cook this 🍳",
+    "Spreading protein across the day 💪",
+    "Counting every cent against your budget 💸",
+]
+
+
+def _inputs_from_wizard(w: dict, form) -> PlanInputs:
+    """PlanInputs from the session wizard + the (possibly edited) step-3 target fields."""
+    t = compute_targets(w["bodyweight_lb"], Goal(w["goal"]), w["activity_level"])
+    return PlanInputs(
+        weekly_budget=w["weekly_budget"], goal=Goal(w["goal"]),
+        bodyweight_lb=w["bodyweight_lb"], activity_level=w["activity_level"],
+        max_cook_minutes=w["max_cook_minutes"], dietary_pattern=w["dietary_pattern"],
+        avoid_allergens=w["avoid_allergens"],
+        owned_ingredient_ids=list((w.get("owned") or {}).keys()),
+        owned_grams=_owned_grams_from_wizard(w),
+        target_calories=_num(form.get("target_calories")) or t.calories,
+        target_protein=_num(form.get("target_protein")) or t.protein,
+        target_carbs=_num(form.get("target_carbs")) or t.carbs,
+        target_fat=_num(form.get("target_fat")) or t.fat,
+        kitchen=KitchenProfile.model_validate(w["kitchen"]),
+    )
+
+
+@app.post("/plan/generate")
+async def plan_generate(request: Request):
+    form = await request.form()
+    w = _wizard(request)
+    inputs = _inputs_from_wizard(w, form)
+    # Remember the confirmed targets so /plan/failed can re-POST them unchanged.
+    w["targets"] = {"calories": inputs.target_calories, "protein": inputs.target_protein,
+                    "carbs": inputs.target_carbs, "fat": inputs.target_fat}
+    request.session["wizard"] = w
+    request.session["job_id"] = jobs.start(inputs, CATALOG)
+    return RedirectResponse("/plan/generating", status_code=303)
+
+
+@app.get("/plan/generating", response_class=HTMLResponse)
+def plan_generating(request: Request):
+    job = jobs.get(request.session.get("job_id"))
+    if job is None:
+        return RedirectResponse("/plan/new?step=1", status_code=303)
+    if job.state == "done":
+        return RedirectResponse("/plan", status_code=303)
+    if job.state == "failed":
+        return RedirectResponse("/plan/failed", status_code=303)
+    return templates.TemplateResponse(request, "generating.html",
+                                      {"status_lines": STATUS_LINES})
+
+
+@app.get("/plan/status")
+def plan_status(request: Request):
+    job = jobs.get(request.session.get("job_id"))
+    if job is None:
+        return {"state": "none", "over_budget": False}
+    return {"state": job.state, "over_budget": job.over_budget}
+
+
+@app.get("/plan/failed", response_class=HTMLResponse)
+def plan_failed(request: Request):
+    w = _wizard(request)
+    targets = w.get("targets") or {}
+    return templates.TemplateResponse(request, "plan_failed.html", {"targets": targets})
 
 
 @app.post("/plan", response_class=HTMLResponse)

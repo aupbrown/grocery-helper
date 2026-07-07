@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Hmm, that one stumped us — grocery buddy{% endblock %}
+{% block body_attrs %} class="narrow"{% endblock %}
+
+{% block content %}
+<div class="loading-wrap" style="padding-top:72px">
+  <span style="font-size:44px" aria-hidden="true">🍳💨</span>
+  <h1 style="font-size:26px;margin:14px 0 8px">That one stumped us</h1>
+  <p class="note" style="max-width:320px;margin:0 auto 20px">We couldn't fit everything this
+    time. Your answers are safe — a small tweak (a few more dollars, or fewer restrictions)
+    usually does it.</p>
+  <form method="post" action="/plan/generate" style="max-width:320px;margin:0 auto">
+    {% if targets.calories %}<input type="hidden" name="target_calories" value="{{ targets.calories|round|int }}">{% endif %}
+    {% if targets.protein %}<input type="hidden" name="target_protein" value="{{ targets.protein|round|int }}">{% endif %}
+    {% if targets.carbs %}<input type="hidden" name="target_carbs" value="{{ targets.carbs|round|int }}">{% endif %}
+    {% if targets.fat %}<input type="hidden" name="target_fat" value="{{ targets.fat|round|int }}">{% endif %}
+    <button class="btn" type="submit">Try again</button>
+  </form>
+  <p style="margin-top:10px"><a href="/plan/new?step=3" style="font-weight:700;font-size:14.5px;text-decoration:none">← Back to my targets</a></p>
+</div>
+{% endblock %}

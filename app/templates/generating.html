@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Building your week — grocery buddy{% endblock %}
+{% block body_attrs %} class="narrow" data-poll{% endblock %}
+
+{% block head %}
+<!-- No-JS fallback: keep re-fetching; the server 303s to /plan (or /plan/failed) when done.
+     With JS, the 2s status poll navigates first. -->
+<meta http-equiv="refresh" content="3">
+{% endblock %}
+
+{% block content %}
+<div class="loading-wrap" role="status" aria-live="polite">
+  <div class="spinner" aria-hidden="true"></div>
+  <p class="headline">Building your week…</p>
+  <p class="note" style="margin:0" data-status-lines='{{ status_lines|tojson }}'>{{ status_lines[0] }}</p>
+  <p class="fine" style="margin-top:4px">usually ~20 seconds</p>
+</div>
+{% endblock %}

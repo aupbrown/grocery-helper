@@ -1,9 +1,84 @@
 from fastapi.testclient import TestClient
 
 import app.main as main
+from app import jobs
 from app.models import Goal, GeneratedPlan, Meal, MealIngredient
 
 client = TestClient(main.app)
+
+
+def _fill_wizard(c, **step1):
+    data = {"weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "180",
+            "max_cook_minutes": "120", "activity_level": "light"}
+    data.update({k: str(v) for k, v in step1.items()})
+    c.post("/plan/new?step=1", data=data)
+    c.post("/plan/new?step=2", data={"kitchen_preset": "apartment",
+                                     "rendered_preset": "apartment"})
+
+
+def _sync_jobs(monkeypatch, fake_plan):
+    """Make generation deterministic and inline for flow tests."""
+    monkeypatch.setattr(jobs, "generate", lambda *a, **k: fake_plan)
+    monkeypatch.setattr(jobs, "_spawn", lambda job: jobs._run(job))
+    monkeypatch.setattr(jobs.storage, "log_event", lambda *a, **k: None)
+
+
+def test_generate_flow_reaches_done_status(monkeypatch):
+    fake = GeneratedPlan(meals=[
+        Meal(name="Chicken & rice", slot="dinner", cook_time_minutes=20, servings=7,
+             instructions="1. Cook.", ingredients=[
+                 MealIngredient(ingredient_id="chicken_breast", grams=1500),
+                 MealIngredient(ingredient_id="rice_white", grams=1500)])])
+    _sync_jobs(monkeypatch, fake)
+    c = TestClient(main.app)
+    _fill_wizard(c)
+    r = c.post("/plan/generate", data={
+        "target_calories": "2700", "target_protein": "180",
+        "target_carbs": "326", "target_fat": "75"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/plan/generating"
+    s = c.get("/plan/status").json()
+    assert s["state"] == "done"
+    assert "over_budget" in s
+    r2 = c.get("/plan/generating", follow_redirects=False)
+    assert r2.status_code == 303
+    assert r2.headers["location"] == "/plan"    # no-JS server-side redirect when done
+
+
+def test_generating_page_renders_while_running(monkeypatch):
+    fake = GeneratedPlan(meals=[
+        Meal(name="Oats", slot="breakfast", cook_time_minutes=0, servings=7,
+             instructions="1. Soak.", ingredients=[
+                 MealIngredient(ingredient_id="oats", grams=700)])])
+    monkeypatch.setattr(jobs, "generate", lambda *a, **k: fake)
+    monkeypatch.setattr(jobs, "_spawn", lambda job: None)     # stay queued
+    c = TestClient(main.app)
+    _fill_wizard(c)
+    c.post("/plan/generate", data={"target_calories": "2700", "target_protein": "180",
+                                   "target_carbs": "326", "target_fat": "75"})
+    r = c.get("/plan/generating")
+    assert r.status_code == 200
+    assert "Building your week" in r.text
+    assert 'role="status"' in r.text
+    assert 'http-equiv="refresh"' in r.text     # no-JS fallback keeps polling
+    assert c.get("/plan/status").json()["state"] == "queued"
+
+
+def test_generation_failure_lands_on_failed_page(monkeypatch):
+    def _boom(*a, **k):
+        raise RuntimeError("api down")
+    monkeypatch.setattr(jobs, "generate", _boom)
+    monkeypatch.setattr(jobs, "_spawn", lambda job: jobs._run(job))
+    c = TestClient(main.app)
+    _fill_wizard(c)
+    c.post("/plan/generate", data={"target_calories": "2700", "target_protein": "180",
+                                   "target_carbs": "326", "target_fat": "75"})
+    r = c.get("/plan/generating", follow_redirects=False)
+    assert r.headers["location"] == "/plan/failed"
+    r2 = c.get("/plan/failed")
+    assert "That one stumped us" in r2.text
+    assert 'action="/plan/generate"' in r2.text  # Try again re-POSTs with saved targets
+    assert 'value="180' in r2.text               # inputs preserved from the session
 
 
 def test_home_is_coach_landing():

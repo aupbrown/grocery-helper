@@ -1,0 +1,27 @@
+{# Summary band (A5/A12). Context: v = {kind, label, data, val}, inputs, over_budget #}
+{% set val = v.val %}
+{% set d = v.data %}
+<section class="summary-band{% if not val.within_budget %} is-warn{% endif %}" aria-label="Week summary — {{ v.label }}">
+  <div class="band-top">
+    <div>
+      {% if val.within_budget %}
+      <p class="eyebrow">Your week, sorted</p>
+      {% else %}
+      <p class="eyebrow">Close — but over budget</p>
+      {% endif %}
+      <p class="figure num">${{ "%.2f"|format(val.total_cost) }}
+        <small>of ${{ "%.0f"|format(val.weekly_budget) }}</small></p>
+    </div>
+    <a class="restart" href="/plan/new?step=1" aria-label="Start over"><span aria-hidden="true">↺</span></a>
+  </div>
+  <div class="chips">
+    {% if not val.within_budget %}
+    <span class="stat-chip"><span aria-hidden="true">⚠</span> ${{ "%.2f"|format(val.over_budget_by) }} over</span>
+    {% endif %}
+    <span class="stat-chip"><span aria-hidden="true">💪</span> {{ d.daily_macros.protein|round|int }}g protein/day{% if d.protein_met %} ✓{% endif %}</span>
+    <span class="stat-chip"><span aria-hidden="true">⏱</span> {{ val.total_prep_minutes }} min cooking</span>
+    {% if val.within_budget and val.budget_remaining > 0 %}
+    <span class="stat-chip"><span aria-hidden="true">💚</span> ${{ "%.2f"|format(val.budget_remaining) }} left</span>
+    {% endif %}
+  </div>
+</section>

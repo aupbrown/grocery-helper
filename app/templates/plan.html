@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Your week, sorted — grocery buddy{% endblock %}
+{% block body_attrs %} class="wide"{% endblock %}
+
+{% block header %}
+<header class="site-head">
+  <a class="logo" href="/">grocery buddy</a>
+  <nav>
+    {% if logged_in %}<a class="nav-saved" href="/account">Saved weeks</a><a href="/account" aria-label="Your account"><span class="avatar">·</span></a>
+    {% else %}<a href="/login">Log in</a>{% endif %}
+  </nav>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="tabs" role="tablist" aria-label="Plan variant">
+  {% for v in variants %}
+  <button type="button" role="tab" id="tab-{{ v.kind }}" data-kind="{{ v.kind }}"
+          aria-controls="panel-{{ v.kind }}"
+          aria-selected="{{ 'true' if loop.first else 'false' }}">{{ v.label }}</button>
+  {% endfor %}
+</div>
+
+{% for v in variants %}
+<section class="tabpanel{% if loop.first %} is-active{% endif %}" id="panel-{{ v.kind }}"
+         role="tabpanel" aria-labelledby="tab-{{ v.kind }}">
+  <h2 class="panel-label">{{ v.label }}</h2>
+
+  {% include "_summary_band.html" %}
+
+  {% if over_budget and v.kind == 'budget' %}{% include "_recovery.html" ignore missing %}{% endif %}
+
+  <div class="meal-stack" style="padding:18px 0 8px">
+    {% for meal in v.data.meals %}
+    {% with kind = v.kind, idx = loop.index0, issue = v.issues.get(meal.name) %}
+    {% include "_swap_unit.html" %}
+    {% endwith %}
+    {% endfor %}
+    <button class="btn-ghost" type="button"
+            data-sheet-open="#meal-{{ v.kind }}-0">↻ Swap a meal I don't like</button>
+  </div>
+
+  {% include "_shopping_list.html" %}
+  {% include "_save_sheet.html" %}
+
+  <div class="action-bar">
+    <button class="btn primary" type="button" data-sheet-open="#list-{{ v.kind }}">
+      <span aria-hidden="true">🛒</span> Shopping list · <span class="num">${{ "%.2f"|format(v.data.total_cost) }}</span>
+    </button>
+    <button class="btn btn-secondary secondary" type="button" data-sheet-open="#save-{{ v.kind }}">Save week</button>
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

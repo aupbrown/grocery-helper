@@ -14,9 +14,6 @@ from app.models import PlanInputs, Goal, GeneratedPlan, KitchenProfile, Computed
 from app.catalog import load_catalog, catalog_by_id, filter_catalog
 from app.kitchen import EQUIPMENT, EQUIPMENT_LABELS, PRESETS
 from app.targets import compute_targets
-from app.generator import generate, generate_one
-from app.plan import compute_plan, adjust_to_targets, reconcile_seasonings, snap_units
-from app.validate import validate_plan
 from app.units import to_grams, owned_unit_options
 from app import storage, auth, jobs
 
@@ -389,124 +386,96 @@ def plan_failed(request: Request):
     return templates.TemplateResponse(request, "plan_failed.html", {"targets": targets})
 
 
-@app.post("/plan", response_class=HTMLResponse)
-def plan(
-    request: Request,
-    weekly_budget: float = Form(...),
-    goal: Goal = Form(...),
-    bodyweight_lb: float = Form(...),
-    activity_level: str = Form("light"),
-    max_cook_minutes: int = Form(...),
-    dietary_pattern: str = Form("none"),
-    avoid_allergens: list[str] = Form(default=[]),
-    owned_ingredient_ids: list[str] = Form(default=[]),
-    target_calories: float = Form(...),
-    target_protein: float = Form(...),
-    target_carbs: float = Form(...),
-    target_fat: float = Form(...),
-    kitchen_json: str = Form(""),
-    owned_grams_json: str = Form(""),
-):
-    inputs = _plan_inputs(
-        weekly_budget=weekly_budget, goal=goal, bodyweight_lb=bodyweight_lb,
-        activity_level=activity_level, max_cook_minutes=max_cook_minutes,
-        dietary_pattern=dietary_pattern, avoid_allergens=avoid_allergens,
-        owned_ingredient_ids=owned_ingredient_ids, owned_grams=_parse_owned_grams(owned_grams_json),
-        target_calories=target_calories, target_protein=target_protein,
-        target_carbs=target_carbs, target_fat=target_fat, kitchen_json=kitchen_json,
-    )
-    filtered = filter_catalog(CATALOG, dietary_pattern, avoid_allergens)
-    # Plan A is budget-first; Plan B is target-first. Keep the base (pre-correction) plans so
-    # a single recipe can be regenerated later without re-rolling the whole week.
-    budget_base = generate(inputs, filtered, priority="budget")
-    protein_base = generate(inputs, filtered, priority="protein")
-    storage.log_event("plan_generated")
-    return _render_results(request, inputs, budget_base, protein_base)
+# --- Plan page (A5/A12) + meal swap ---
+
+SLOT_ORDER = {"breakfast": 0, "lunch": 1, "dinner": 2, "snack": 3}
+SLOT_ICONS = {"breakfast": "🍳", "lunch": "🥗", "dinner": "🍽️", "snack": "🍎"}
+SLOT_TINTS = {"breakfast": "is-oat", "lunch": "is-sea"}
 
 
-def _finalize(base: GeneratedPlan, inputs: PlanInputs, filtered_by_id, budget_cap):
-    """Correct macros, list mentioned seasonings, snap units, then compute AND validate.
+def _variant(job: jobs.Job, kind: str) -> dict:
+    filtered_by_id = catalog_by_id(filter_catalog(CATALOG, job.inputs.dietary_pattern,
+                                                  job.inputs.avoid_allergens))
+    if kind == "budget":
+        data, val = jobs.finalize(job.budget_base, job.inputs, filtered_by_id,
+                                  job.inputs.weekly_budget)
+        label = "Budget-first"
+    else:
+        data, val = jobs.finalize(job.protein_base, job.inputs, filtered_by_id, None)
+        label = "Protein-first"
+    data.meals.sort(key=lambda m: SLOT_ORDER.get(m.slot, 9))
+    kitchen = job.inputs.kitchen
+    issues = {}
+    for m in data.meals:
+        missing = sorted(set(m.equipment_required) -
+                         {e for e in EQUIPMENT if getattr(kitchen, e)})
+        if missing:
+            labels = ", ".join(EQUIPMENT_LABELS.get(e, e) for e in missing)
+            issues[m.name] = f"needs a {labels} your kitchen doesn't have"
+    return {"kind": kind, "label": label, "data": data, "val": val, "issues": issues}
 
-    Returns (ComputedPlan, PlanValidation): the validation is the deterministic source of truth
-    for budget/macro status and powers the Budget Guarantee summary.
-    """
-    gen = reconcile_seasonings(base, filtered_by_id)   # list mentioned seasonings + cooking oil
-    gen = adjust_to_targets(gen, filtered_by_id, inputs, budget_cap=budget_cap)
-    gen = snap_units(gen, filtered_by_id)
-    return compute_plan(gen, filtered_by_id, inputs), validate_plan(gen, filtered_by_id, inputs)
+
+def _owned_names(inputs: PlanInputs) -> set[str]:
+    return {CATALOG_BY_ID[i].name for i in inputs.owned_ingredient_ids if i in CATALOG_BY_ID}
 
 
-def _render_results(request, inputs: PlanInputs,
-                    budget_base: GeneratedPlan, protein_base: GeneratedPlan):
-    # Filtered catalog so the whey top-up respects diet/allergens (no whey for vegan/dairy).
-    filtered_by_id = catalog_by_id(filter_catalog(CATALOG, inputs.dietary_pattern,
-                                                  inputs.avoid_allergens))
-    budget_data, budget_val = _finalize(budget_base, inputs, filtered_by_id, inputs.weekly_budget)
-    protein_data, protein_val = _finalize(protein_base, inputs, filtered_by_id, None)
-    return templates.TemplateResponse(request, "results.html", {
-        "plans": [
-            {"kind": "budget", "label": "Plan A — Fits your budget",
-             "blurb": "Cheapest plan under your budget. Protein may fall short of target.",
-             "data": budget_data, "validation": budget_val},
-            {"kind": "protein", "label": "Plan B — Hits your protein",
-             "blurb": "Reaches your protein target at the lowest cost. May run just over budget.",
-             "data": protein_data, "validation": protein_val},
-        ],
-        "inputs": inputs,
-        "budget_base_json": budget_base.model_dump_json(),
-        "protein_base_json": protein_base.model_dump_json(),
-        "kitchen_json": inputs.kitchen.model_dump_json(),
-        "owned_grams_json": json.dumps(inputs.owned_grams),
+@app.get("/plan", response_class=HTMLResponse)
+def plan_page(request: Request):
+    job = jobs.get(request.session.get("job_id"))
+    if job is None:
+        return RedirectResponse("/", status_code=303)
+    if job.state in ("queued", "running"):
+        return RedirectResponse("/plan/generating", status_code=303)
+    if job.state == "failed":
+        return RedirectResponse("/plan/failed", status_code=303)
+    return templates.TemplateResponse(request, "plan.html", {
+        "variants": [_variant(job, "budget"), _variant(job, "protein")],
+        "inputs": job.inputs,
+        "over_budget": job.over_budget and not job.keep_anyway,
+        "owned_names": _owned_names(job.inputs),
+        "plan_key": job.id,
+        "icons": SLOT_ICONS, "tints": SLOT_TINTS,
         "logged_in": "user_id" in request.session,
     })
 
 
 @app.post("/regenerate", response_class=HTMLResponse)
-def regenerate(
-    request: Request,
-    plan_kind: str = Form(...),
-    slot: str = Form(...),
-    budget_base_json: str = Form(...),
-    protein_base_json: str = Form(...),
-    weekly_budget: float = Form(...),
-    goal: Goal = Form(...),
-    bodyweight_lb: float = Form(...),
-    activity_level: str = Form("light"),
-    max_cook_minutes: int = Form(...),
-    dietary_pattern: str = Form("none"),
-    avoid_allergens: list[str] = Form(default=[]),
-    owned_ingredient_ids: list[str] = Form(default=[]),
-    target_calories: float = Form(...),
-    target_protein: float = Form(...),
-    target_carbs: float = Form(...),
-    target_fat: float = Form(...),
-    kitchen_json: str = Form(""),
-    owned_grams_json: str = Form(""),
-):
-    inputs = _plan_inputs(
-        weekly_budget=weekly_budget, goal=goal, bodyweight_lb=bodyweight_lb,
-        activity_level=activity_level, max_cook_minutes=max_cook_minutes,
-        dietary_pattern=dietary_pattern, avoid_allergens=avoid_allergens,
-        owned_ingredient_ids=owned_ingredient_ids, owned_grams=_parse_owned_grams(owned_grams_json),
-        target_calories=target_calories, target_protein=target_protein,
-        target_carbs=target_carbs, target_fat=target_fat, kitchen_json=kitchen_json,
-    )
-    filtered = filter_catalog(CATALOG, dietary_pattern, avoid_allergens)
-    budget_base = GeneratedPlan.model_validate_json(budget_base_json)
-    protein_base = GeneratedPlan.model_validate_json(protein_base_json)
-    target = budget_base if plan_kind == "budget" else protein_base
+async def regenerate(request: Request):
+    job = jobs.get(request.session.get("job_id"))
+    if job is None or job.state != "done":
+        return RedirectResponse("/plan", status_code=303)
+    form = await request.form()
+    plan_kind = form.get("plan_kind") if form.get("plan_kind") in ("budget", "protein") \
+        else "budget"
+    slot = form.get("slot") or "dinner"
+    idx = int(_num(form.get("idx")) or 0)
+    filtered = filter_catalog(CATALOG, job.inputs.dietary_pattern, job.inputs.avoid_allergens)
+    target = job.budget_base if plan_kind == "budget" else job.protein_base
 
     # Regenerate just this slot, keeping the rest; re-finalizing re-meets the macro targets.
     avoid = next((m.name for m in target.meals if m.slot == slot), None)
-    new_meal = generate_one(inputs, filtered, slot, priority=plan_kind, avoid_name=avoid)
+    new_meal = jobs.generate_one(job.inputs, filtered, slot, priority=plan_kind,
+                                 avoid_name=avoid)
     meals = [m for m in target.meals if m.slot != slot] + [new_meal]
-    new_base = GeneratedPlan(meals=meals)
     if plan_kind == "budget":
-        budget_base = new_base
+        job.budget_base = GeneratedPlan(meals=meals)
     else:
-        protein_base = new_base
-    storage.log_event("recipe_regenerated")
-    return _render_results(request, inputs, budget_base, protein_base)
+        job.protein_base = GeneratedPlan(meals=meals)
+    try:
+        storage.log_event("recipe_regenerated")
+    except Exception:
+        pass
+    if not request.headers.get("X-Partial"):
+        return RedirectResponse("/plan", status_code=303)
+    variant = _variant(job, plan_kind)
+    meal = next((m for m in variant["data"].meals if m.name == new_meal.name),
+                variant["data"].meals[0])
+    return templates.TemplateResponse(request, "_swap_unit.html", {
+        "kind": plan_kind, "meal": meal, "idx": idx,
+        "owned_names": _owned_names(job.inputs),
+        "issue": variant["issues"].get(meal.name),
+        "icons": SLOT_ICONS, "tints": SLOT_TINTS,
+    })
 
 
 def _plan_record(inputs: PlanInputs, computed: ComputedPlan, validation, plan_kind: str) -> dict:
@@ -552,7 +521,7 @@ def _save_current_plan(user_id: int, form) -> int:
     cap = inputs.weekly_budget if plan_kind == "budget" else None
     filtered_by_id = catalog_by_id(filter_catalog(CATALOG, inputs.dietary_pattern,
                                                   inputs.avoid_allergens))
-    computed, validation = _finalize(base, inputs, filtered_by_id, cap)
+    computed, validation = jobs.finalize(base, inputs, filtered_by_id, cap)
     return storage.save_plan(user_id, _plan_record(inputs, computed, validation, plan_kind))
 
 

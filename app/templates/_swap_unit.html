@@ -1,0 +1,6 @@
+{# A meal card + its detail sheet, wrapped so a swap can replace both at once.
+   Context: meal, kind, idx, owned_names, issue, icons, tints #}
+<div class="swap-unit" id="unit-{{ kind }}-{{ idx }}">
+  {% include "_meal_card.html" %}
+  {% include "_meal_detail.html" %}
+</div>

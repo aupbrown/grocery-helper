@@ -1,0 +1,59 @@
+{# Shopping list sheet (A6). Context: v = {kind, data, val}, plan_key #}
+{% set d = v.data %}
+{% set val = v.val %}
+<dialog class="sheet" id="list-{{ v.kind }}" aria-label="Shopping list" style="position:relative">
+  <div class="grab" aria-hidden="true"></div>
+  <button class="sheet-close" type="button" data-sheet-close aria-label="Close">✕</button>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+    <h2 style="font-size:22px;margin:0">Shopping list</h2>
+    <span class="num" style="font-family:var(--font-display);font-weight:800;font-size:18px;color:var(--accent-dark)">${{ "%.2f"|format(d.total_cost) }}</span>
+  </div>
+  <p class="fine" style="margin-bottom:14px">{{ d.grocery_list|length }} item{{ 's' if d.grocery_list|length != 1 }} · check them off as you shop{% if val.pantry_savings > 0 %} · <span style="color:var(--tint-sea-ink);font-weight:600">saved ${{ "%.2f"|format(val.pantry_savings) }} with stuff you own</span>{% endif %}</p>
+
+  <div data-list-key="list:{{ plan_key }}:{{ v.kind }}">
+    {% for g in d.grocery_list %}
+    <label class="check-row">
+      <input type="checkbox" value="{{ g.ingredient_id }}">
+      <span>
+        <span class="item">{{ g.name }}{% if g.owned_grams > 0 %} <span class="badge">you own some</span>{% endif %}</span>
+        <span class="pack">{% if g.owned_grams > 0 %}buying only the rest · {% endif %}{{ g.packages }} × {{ g.package_label }}</span>
+      </span>
+      <span class="price num">${{ "%.2f"|format(g.cost) }}</span>
+    </label>
+    {% endfor %}
+  </div>
+
+  {% if d.pantry_list %}
+  <details class="fold" style="margin-top:12px">
+    <summary>Pantry stock-up (one-time buys) · ${{ "%.2f"|format(d.pantry_total) }}</summary>
+    <div class="fold-body">
+      <p class="fine">Bought once, reused for months — not counted against your weekly budget.</p>
+      {% for g in d.pantry_list %}
+      <div class="ingredient-row">
+        <span>{{ g.name }} <span class="fine">{{ g.packages }} × {{ g.package_label }}</span></span>
+        <span class="qty">${{ "%.2f"|format(g.cost) }}{% if g.per_meal_cost %} <span class="fine">≈ ${{ "%.2f"|format(g.per_meal_cost) }}/meal</span>{% endif %}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
+  {% if d.owned_list %}
+  <details class="fold" style="margin-top:12px">
+    <summary>Already on your shelf — used free this week</summary>
+    <div class="fold-body">
+      {% for g in d.owned_list %}
+      <div class="ingredient-row"><span>{{ g.name }}</span><span class="qty">{{ g.uses_display }}</span></div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
+  <textarea id="copy-src-{{ v.kind }}" hidden readonly aria-hidden="true">
+Shopping list — ${{ "%.2f"|format(d.total_cost) }}
+{% for g in d.grocery_list %}- {{ g.name }}: {{ g.packages }} × {{ g.package_label }} — ${{ "%.2f"|format(g.cost) }}
+{% endfor %}</textarea>
+  <button class="btn btn-dark" type="button" style="margin-top:16px;font-size:16px"
+          data-copy-target="#copy-src-{{ v.kind }}">Share / copy list <span aria-hidden="true">📋</span></button>
+  <p class="fine" style="text-align:center;margin:12px 0 0">Costs are estimates from a fixed ingredient catalog.</p>
+</dialog>

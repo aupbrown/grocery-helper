@@ -149,72 +149,60 @@ def test_wizard_step3_without_basics_redirects_guest_to_step1():
     assert r.headers["location"] == "/plan/new?step=1"
 
 
-def test_post_plan_renders_results(monkeypatch):
+def _generate_plan(monkeypatch, fake_plan, step2=None):
+    """Drive the wizard + sync generation, returning a client whose session has a done job."""
+    _sync_jobs(monkeypatch, fake_plan)
+    c = TestClient(main.app)
+    _fill_wizard(c)
+    if step2:
+        c.post("/plan/new?step=2", data=step2)
+    c.post("/plan/generate", data={"target_calories": "2700", "target_protein": "180",
+                                   "target_carbs": "326", "target_fat": "75"})
+    return c
+
+
+def test_plan_page_renders_variants_and_sheets(monkeypatch):
     fake = GeneratedPlan(meals=[
-        Meal(name="Chicken & rice", cook_time_minutes=20, servings=2,
+        Meal(name="Chicken & rice", slot="dinner", cook_time_minutes=20, servings=7,
              instructions="1. Season the chicken with salt.\n2. Cook the rice and serve.",
              ingredients=[
-                 MealIngredient(ingredient_id="rice_white", grams=200),
-                 MealIngredient(ingredient_id="chicken_breast", grams=150),
-                 MealIngredient(ingredient_id="banana", grams=240)]),
+                 MealIngredient(ingredient_id="rice_white", grams=1400),
+                 MealIngredient(ingredient_id="chicken_breast", grams=1050),
+                 MealIngredient(ingredient_id="banana", grams=840)]),
     ])
-    # Stub the LLM (called twice — budget + protein) and Postgres logging so the
-    # web test stays offline.
-    monkeypatch.setattr(
-        main, "generate",
-        lambda inputs, catalog, client=None, priority="budget", **kw: fake,
-    )
-    monkeypatch.setattr(main.storage, "log_event", lambda *a, **k: None)
-    r = client.post("/plan", data={
-        "weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "180",
-        "activity_level": "light", "max_cook_minutes": "120",
-        "dietary_pattern": "none", "target_calories": "2700", "target_protein": "180",
-        "target_carbs": "326", "target_fat": "75",
-    })
+    c = _generate_plan(monkeypatch, fake)
+    r = c.get("/plan")
     assert r.status_code == 200
+    assert "Your week, sorted" in r.text                    # summary band eyebrow
+    assert "summary-band" in r.text
+    assert 'role="tablist"' in r.text and r.text.count('role="tab"') == 2
+    assert "Budget-first" in r.text and "Protein-first" in r.text
     assert "Chicken &amp; rice" in r.text or "Chicken & rice" in r.text
-    # Calm results layout: at-a-glance hero, tabbed plans, detail collapsed by default.
-    assert "Your week, sorted" in r.text                       # confident hero headline
-    assert 'role="tablist"' in r.text and r.text.count('role="tab"') >= 2  # Plan A / Plan B tabs
-    assert "Plan A" in r.text and "Plan B" in r.text
-    assert "meter-fill" in r.text                              # budget tally meter (signature)
-    assert "Protein" in r.text and "Calories" in r.text        # macro bars
-    assert "Carbs" in r.text and "Fat" in r.text               # all four macros still reported
-    assert "Under budget" in r.text or "over budget" in r.text  # budget verdict
-    assert "/day" in r.text and "/meal" in r.text              # per-day / per-meal cost
-    assert 'details class="meal"' in r.text                    # meals collapsed by default
-    assert "/serving" in r.text                                # ingredient amounts per serving
-    assert "<ol" in r.text                                     # recipe steps preserved
-    assert 'details class="shop"' in r.text and "Shopping list" in r.text  # one collapsed list
-    assert "Daily protein shake" in r.text                     # whey top-up still added
-    assert "banana" in r.text and "Salt" in r.text             # ingredients still listed in detail
-    assert "fat per serving" not in r.text                     # per-ingredient macro breakdown cut
+    assert "meal-card" in r.text
+    assert "<dialog" in r.text                              # server-rendered sheets
+    assert "Shopping list" in r.text and "Save week" in r.text
+    assert "use" in r.text and "<ol" in r.text              # meal detail: ingredients + steps
+    assert "Daily protein shake" in r.text                  # whey top-up still added
+    assert "Swap a meal" in r.text                          # ghost swap affordance
+    assert "min cooking" in r.text                          # stat chips
 
 
-def test_post_plan_flags_stove_meal_for_microwave_only_kitchen(monkeypatch):
-    from app.models import KitchenProfile
+def test_plan_page_flags_stove_meal_for_dorm_kitchen(monkeypatch):
     stove_meal = GeneratedPlan(meals=[
         Meal(name="Stovetop stir fry", slot="dinner", cook_time_minutes=25, servings=7,
              instructions="1. Sear chicken in a skillet on the stove.",
              equipment_required=["stove"], ingredients=[
                  MealIngredient(ingredient_id="chicken_breast", grams=1400),
                  MealIngredient(ingredient_id="rice_white", grams=1400)])])
-    monkeypatch.setattr(main, "generate", lambda *a, **k: stove_meal)
-    monkeypatch.setattr(main.storage, "log_event", lambda *a, **k: None)
-    dorm = KitchenProfile(microwave=True, stove=False, oven=False).model_dump_json()
-    r = client.post("/plan", data={
-        "weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "180",
-        "activity_level": "light", "max_cook_minutes": "120", "dietary_pattern": "none",
-        "target_calories": "2700", "target_protein": "180", "target_carbs": "326",
-        "target_fat": "75", "kitchen_json": dorm,
-    })
+    c = _generate_plan(monkeypatch, stove_meal,
+                       step2={"kitchen_preset": "dorm", "rendered_preset": "dorm"})
+    r = c.get("/plan")
     assert r.status_code == 200
-    assert "which your kitchen lacks" in r.text   # validator flagged the stove violation
-    assert "stove" in r.text                       # equipment named on the meal chip
-    assert "session" in r.text                     # batch-cook prep transparency rendered
+    assert "is-warn" in r.text                    # meal card flagged
+    assert "stove" in r.text                      # missing equipment named
 
 
-def test_post_regenerate_swaps_one_slot_and_keeps_macros(monkeypatch):
+def test_regenerate_returns_partial_swap_unit(monkeypatch):
     base = GeneratedPlan(meals=[
         Meal(name="Old dinner", slot="dinner", cook_time_minutes=20, servings=7,
              instructions="1. Cook.", ingredients=[
@@ -224,45 +212,40 @@ def test_post_regenerate_swaps_one_slot_and_keeps_macros(monkeypatch):
                  instructions="1. Stir fry.", ingredients=[
                      MealIngredient(ingredient_id="chicken_breast", grams=1600),
                      MealIngredient(ingredient_id="rice_white", grams=1600)])
-    monkeypatch.setattr(main, "generate_one",
-                        lambda *a, **k: fresh)
-    monkeypatch.setattr(main.storage, "log_event", lambda *a, **k: None)
-    bj = base.model_dump_json()
-    r = client.post("/regenerate", data={
-        "plan_kind": "protein", "slot": "dinner",
-        "budget_base_json": bj, "protein_base_json": bj,
-        "weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "180",
-        "activity_level": "light", "max_cook_minutes": "120", "dietary_pattern": "none",
-        "target_calories": "2200", "target_protein": "110",
-        "target_carbs": "250", "target_fat": "70",
-    })
+    c = _generate_plan(monkeypatch, base)
+    monkeypatch.setattr(jobs, "generate_one", lambda *a, **k: fresh)
+    r = c.post("/regenerate", data={"plan_kind": "protein", "slot": "dinner", "idx": "0"},
+               headers={"X-Partial": "1"})
     assert r.status_code == 200
-    assert "Fresh stir fry" in r.text                       # the slot was regenerated
-    protein_block = r.text.split('id="panel-protein"')[-1]  # Plan B (protein-first) panel
-    assert "Fresh stir fry" in protein_block                # regenerated meal lands in Plan B
-    assert "✓" in protein_block                             # protein target met -> check shown
+    assert "Fresh stir fry" in r.text             # the regenerated card comes back
+    assert "swap-unit" in r.text
+    assert "<html" not in r.text                  # partial, not a full page
+    # Without the header, the same POST falls back to a full-page redirect.
+    r2 = c.post("/regenerate", data={"plan_kind": "budget", "slot": "dinner", "idx": "0"},
+                follow_redirects=False)
+    assert r2.status_code == 303
+    assert r2.headers["location"] == "/plan"
 
 
-def test_plan_route_survives_generation_failure(monkeypatch):
-    # If the Gemini client itself can't be created, generate() must fall back to templates
-    # rather than 500 the request.
+def test_plan_flow_survives_generation_failure(monkeypatch):
+    # If the Gemini client itself can't be created, generate() falls back to templates —
+    # the job still completes and the plan page renders.
     import app.generator as gen
 
     def _boom(*a, **k):
         raise RuntimeError("no API key")
 
     monkeypatch.setattr(gen.genai, "Client", _boom)
-    monkeypatch.setattr(main.storage, "log_event", lambda *a, **k: None)
-    r = client.post("/plan", data={
-        "weekly_budget": "50", "goal": "maintain", "bodyweight_lb": "180",
-        "activity_level": "light", "max_cook_minutes": "180", "dietary_pattern": "none",
-        "target_calories": "2400", "target_protein": "150", "target_carbs": "250",
-        "target_fat": "70",
-    })
+    monkeypatch.setattr(jobs, "_spawn", lambda job: jobs._run(job))
+    monkeypatch.setattr(jobs.storage, "log_event", lambda *a, **k: None)
+    c = TestClient(main.app)
+    _fill_wizard(c)
+    c.post("/plan/generate", data={"target_calories": "2400", "target_protein": "150",
+                                   "target_carbs": "250", "target_fat": "70"})
+    assert c.get("/plan/status").json()["state"] == "done"
+    r = c.get("/plan")
     assert r.status_code == 200
-    assert "Your week, sorted" in r.text          # a real (fallback) plan rendered
-
-
+    assert "Your week, sorted" in r.text
 
 
 def test_plan_partial_ownership_shows_buy_the_rest_note(monkeypatch):
@@ -271,18 +254,18 @@ def test_plan_partial_ownership_shows_buy_the_rest_note(monkeypatch):
              instructions="1. Cook the chicken and rice.",
              ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=2000),
                           MealIngredient(ingredient_id="rice_white", grams=1400)])])
-    monkeypatch.setattr(main, "generate", lambda *a, **k: fake)
     # Skip macro scaling so the owned amount stays a clear partial (stable assertion).
-    monkeypatch.setattr(main, "adjust_to_targets", lambda gen, *a, **k: gen)
-    monkeypatch.setattr(main.storage, "log_event", lambda *a, **k: None)
-    r = client.post("/plan", data={
-        "weekly_budget": "40", "goal": "maintain", "bodyweight_lb": "180",
-        "activity_level": "light", "max_cook_minutes": "120", "dietary_pattern": "none",
-        "target_calories": "2700", "target_protein": "180", "target_carbs": "326",
-        "target_fat": "75", "owned_grams_json": '{"chicken_breast": 500}',
-    })
+    monkeypatch.setattr(jobs, "adjust_to_targets", lambda gen, *a, **k: gen)
+    _sync_jobs(monkeypatch, fake)
+    c = TestClient(main.app)
+    _fill_wizard(c)
+    c.post("/plan/new?step=2", data={
+        "kitchen_preset": "apartment", "rendered_preset": "apartment",
+        "owned_ids": "chicken_breast", "owned_qty_chicken_breast": "500",
+        "owned_unit_chicken_breast": "g"})
+    c.post("/plan/generate", data={"target_calories": "2700", "target_protein": "180",
+                                   "target_carbs": "326", "target_fat": "75"})
+    r = c.get("/plan")
     assert r.status_code == 200
     assert "buying only the rest" in r.text      # partial-ownership note rendered
-    assert "owned_grams_json" in r.text          # threaded into the regenerate/register forms
-
-
+    assert "you own some" in r.text              # shopping-list badge

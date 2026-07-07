@@ -1,0 +1,15 @@
+{# One tappable meal card (A5). Context: meal, kind, idx, issue (str|None), icons, tints #}
+<button class="meal-card{% if issue %} is-warn{% endif %}" type="button"
+        data-sheet-open="#meal-{{ kind }}-{{ idx }}"
+        aria-haspopup="dialog" aria-controls="meal-{{ kind }}-{{ idx }}">
+  <span class="tile {{ tints.get(meal.slot, '') }}" aria-hidden="true">{{ icons.get(meal.slot, '🍽️') }}</span>
+  <span>
+    <span class="slot-line">{{ meal.slot }} · ×{{ meal.servings }}</span>
+    <span class="name">{{ meal.name }}</span>
+    <span class="stats num">{{ meal.macros_per_serving.calories|round|int }} kcal
+      · {{ meal.macros_per_serving.protein|round|int }}g protein
+      · {% if meal.cook_time_minutes > 0 %}{{ meal.cook_time_minutes }} min{% else %}no-cook{% endif %}</span>
+    {% if issue %}<span class="warn-reason"><span aria-hidden="true">⚠</span> {{ issue }}</span>{% endif %}
+  </span>
+  <span class="chev" aria-hidden="true">›</span>
+</button>

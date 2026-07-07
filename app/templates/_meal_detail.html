@@ -1,0 +1,56 @@
+{# Meal detail sheet (A10). Context: meal, kind, idx, owned_names, icons, tints #}
+<dialog class="sheet" id="meal-{{ kind }}-{{ idx }}" aria-label="{{ meal.name }} — recipe details" style="position:relative">
+  <div class="grab" aria-hidden="true"></div>
+  <button class="sheet-close" type="button" data-sheet-close aria-label="Close">✕</button>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+    <span style="width:48px;height:48px;border-radius:var(--r-sm);background:var(--accent-tint);display:grid;place-items:center;font-size:24px" class="{{ tints.get(meal.slot, '') }}" aria-hidden="true">{{ icons.get(meal.slot, '🍽️') }}</span>
+    <div>
+      <span style="display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--accent-dark)">{{ meal.slot }} · ×{{ meal.servings }} this week</span>
+      <h2 style="font-size:21px;margin:0">{{ meal.name }}</h2>
+    </div>
+  </div>
+
+  <div class="chip-row" style="margin:12px 0 16px">
+    <span class="stat-chip">{{ meal.macros_per_serving.calories|round|int }} kcal</span>
+    <span class="stat-chip is-accent">{{ meal.macros_per_serving.protein|round|int }}g protein</span>
+    <span class="stat-chip"><span aria-hidden="true">⏱</span>
+      {% if meal.cook_time_minutes > 0 %}{{ meal.cook_time_minutes }} min{% if meal.pan_loads > 1 %}, {{ meal.pan_loads }} pan-loads{% else %}, one batch{% endif %}{% else %}no-cook{% endif %}</span>
+    {% if meal.equipment_required %}
+    <span class="stat-chip">{{ meal.equipment_required|join(', ') }}</span>
+    {% endif %}
+  </div>
+
+  <h3 style="margin-bottom:8px">You'll use</h3>
+  <div style="margin-bottom:16px">
+    {% for ing in meal.ingredients %}
+    <div class="ingredient-row">
+      <span>{{ ing.name }}{% if ing.name in owned_names %} <span class="badge">from your shelf</span>{% endif %}</span>
+      <span class="qty">{{ ing.amount_per_serving }} / serving · {{ ing.amount_total }} total</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if meal.instructions %}
+  <h3 style="margin-bottom:8px">How to make it{% if meal.cook_time_minutes > 0 %} (once, batch of {{ meal.servings }}){% endif %}</h3>
+  <ol style="margin:0 0 18px;padding-left:22px;font-size:14.5px;display:flex;flex-direction:column;gap:7px">
+    {% for step in meal.instructions.split('\n') %}{% if step.strip() %}
+    <li>{{ step.strip().lstrip('0123456789.) ') }}</li>
+    {% endif %}{% endfor %}
+  </ol>
+  {% endif %}
+
+  <div style="display:flex;gap:10px">
+    {% if meal.slot != 'snack' %}
+    <form method="post" action="/regenerate" data-swap style="flex:1;display:flex">
+      <input type="hidden" name="plan_kind" value="{{ kind }}">
+      <input type="hidden" name="slot" value="{{ meal.slot }}">
+      <input type="hidden" name="idx" value="{{ idx }}">
+      <button class="btn btn-secondary" type="submit" style="font-size:15px;padding:13px 8px">↻ Swap this meal</button>
+    </form>
+    {% endif %}
+    <button class="btn btn-dark" type="button" data-sheet-close style="flex:1;font-size:15px;padding:13px 8px">Done</button>
+  </div>
+  {% if meal.slot != 'snack' %}
+  <p class="fine" style="text-align:center;margin:12px 0 0">Swapping keeps you under budget — we re-balance the list automatically.</p>
+  {% endif %}
+</dialog>

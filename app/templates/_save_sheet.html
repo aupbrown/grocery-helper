@@ -1,0 +1,14 @@
+{# Save-week sheet (A7). Fleshed out with the account form in the save/account task;
+   until then guests get the pitch + login link. Context: v, logged_in #}
+<dialog class="sheet" id="save-{{ v.kind }}" aria-label="Save this week" style="position:relative">
+  <div class="grab" aria-hidden="true"></div>
+  <button class="sheet-close" type="button" data-sheet-close aria-label="Close">✕</button>
+  <h2 style="font-size:24px;margin-bottom:6px">Keep this week <span aria-hidden="true">🔒</span></h2>
+  <p class="note" style="font-size:14.5px;margin-bottom:18px">One account, three perks: this plan
+    saved, your pantry remembered for next week, and mid-week fixes when life happens.</p>
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:16px;font-size:14px">
+    <strong>Saving:</strong> {{ v.label }} · <span class="num">${{ "%.2f"|format(v.data.total_cost) }}</span>
+  </div>
+  <a class="btn" href="/login">Log in to save it</a>
+  <p class="fine" style="text-align:center;margin:12px 0 0">Account creation lands right here soon.</p>
+</dialog>

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}grocery buddy{% endblock %}</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <!-- Mark JS available up-front so tabs/sheets render enhanced without a flash. -->
+  <script>document.documentElement.className='js';</script>
+  {% block head %}{% endblock %}
+</head>
+<body{% block body_attrs %}{% endblock %}>
+  {% block header %}{% endblock %}
+  <main>{% block content %}{% endblock %}</main>
+  {% block sheets %}{% endblock %}
+  <script src="/static/ui.js" defer></script>
+</body>
+</html>

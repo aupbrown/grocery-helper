@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#E9EAE4; font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+    a { color:#22615A; text-underline-offset:2px; }
+    a:hover { color:#1A4A44; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</helmet>
+
+<!-- ================================================================
+     COACH — CORE FLOW (A1–A9)
+     ================================================================ -->
+<section id="1a" style="padding:48px 48px 24px; display:flex; flex-direction:column; gap:20px;">
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <span style="background:{{ accent }}; color:#fff; font-family:ui-monospace,monospace; font-size:13px; font-weight:700; padding:4px 10px; border-radius:6px;">A1–A9</span>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-size:24px; font-weight:800; color:#2B2420; margin:0;">Coach — core flow</h1>
+    <span style="font-size:14px; color:#6B6158;">Welcome → basics → kitchen+pantry → targets → plan → shop → save · palette/canvas/shape via Tweaks (current: Fresh teal on Porcelain)</span>
+  </div>
+
+  <div style="display:flex; gap:32px; align-items:flex-start; flex-wrap:wrap;">
+
+    <!-- A1 Welcome -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A1 · Welcome / Home (marketing-style landing)</div>
+      <div data-screen-label="A1 Welcome" style="width:390px; background:{{ bg }}; color:#2B2420; font-size:16px; line-height:1.5; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden; display:flex; flex-direction:column;">
+        <div style="padding:22px 22px 0; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px;">grocery buddy</span>
+          <a href="#a-save" style="font-size:14px; font-weight:600; color:{{ accentDark }}; text-decoration:none;">Log in</a>
+        </div>
+        <div style="padding:30px 22px 34px;">
+          <p style="font-family:'Bricolage Grotesque',sans-serif; font-weight:500; font-size:15px; color:#8A7D71; margin:0 0 10px;">Hey, hungry person 👋</p>
+          <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:36px; line-height:1.06; letter-spacing:-.02em; margin:0 0 14px; text-wrap:pretty;">Eat well on a college budget. We'll do the math.</h1>
+          <p style="color:#6B6158; font-size:16px; margin:0 0 24px; text-wrap:pretty;">Tell us your budget and goals — we plan a week of cheap, high-protein meals and the exact grocery list to cook them.</p>
+          <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:26px;">
+            <div style="display:flex; align-items:center; gap:12px; background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:12px 14px;">
+              <span style="width:34px; height:34px; border-radius:10px; background:{{ accentTint }}; color:{{ accentDark }}; display:grid; place-items:center; font-weight:800; font-family:'Bricolage Grotesque',sans-serif;">$</span>
+              <span style="font-size:14.5px;"><strong>Stays under budget</strong> — down to the cent.</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:12px 14px;">
+              <span style="width:34px; height:34px; border-radius:10px; background:#E3F0EE; color:#2F7E74; display:grid; place-items:center; font-weight:800; font-family:'Bricolage Grotesque',sans-serif;">P</span>
+              <span style="font-size:14.5px;"><strong>Hits your protein</strong> — sized to your body &amp; goal.</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:12px 14px;">
+              <span style="width:34px; height:34px; border-radius:10px; background:#F3ECDF; color:#8A6D2F; display:grid; place-items:center; font-weight:800; font-family:'Bricolage Grotesque',sans-serif;">🍳</span>
+              <span style="font-size:14.5px;"><strong>Works in your kitchen</strong> — even microwave-only dorms.</span>
+            </div>
+          </div>
+          <a href="#a2" style="display:block; text-align:center; background:{{ accent }}; color:#fff; text-decoration:none; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:17px; border-radius:{{ rPill }}; padding:16px 20px; box-shadow:0 6px 16px -6px {{ accentGlow }};">Plan my week — it's free</a>
+          <p style="text-align:center; color:#8A7D71; font-size:13px; margin:12px 0 0;">Takes about a minute · no account needed</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- A2 Wizard step 1 -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a2" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A2 · Wizard step 1 — the basics</div>
+      <div data-screen-label="A2 Basics" style="width:390px; background:{{ bg }}; color:#2B2420; font-size:16px; line-height:1.5; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden;">
+        <div style="padding:18px 22px 0; display:flex; align-items:center; gap:14px;">
+          <a href="#1a" aria-label="Back" style="text-decoration:none; color:#8A7D71; font-size:20px;">←</a>
+          <div style="flex:1; display:flex; gap:6px;" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="3" aria-label="Step 1 of 3">
+            <span style="flex:1; height:6px; border-radius:{{ rPill }}; background:{{ accent }};"></span>
+            <span style="flex:1; height:6px; border-radius:{{ rPill }}; background:#EBDFD1;"></span>
+            <span style="flex:1; height:6px; border-radius:{{ rPill }}; background:#EBDFD1;"></span>
+          </div>
+          <span style="font-size:13px; color:#8A7D71; font-variant-numeric:tabular-nums;">1/3</span>
+        </div>
+        <div style="padding:26px 22px 30px;">
+          <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:28px; line-height:1.1; letter-spacing:-.015em; margin:0 0 6px;">The basics</h1>
+          <p style="color:#6B6158; font-size:15px; margin:0 0 22px;">Five quick things. You can tweak everything later.</p>
+
+          <label style="display:block; font-weight:700; font-size:15px; margin:0 0 8px;">Weekly grocery budget</label>
+          <div style="display:flex; align-items:center; gap:14px; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; margin-bottom:6px;">
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:30px; color:{{ accent }}; font-variant-numeric:tabular-nums;">$40</span>
+            <input type="range" min="20" max="120" value="40" style="flex:1; accent-color:{{ accent }};" aria-label="Weekly budget in dollars">
+          </div>
+          <p style="font-size:13px; color:#8A7D71; margin:0 0 20px;">≈ $1.90 per meal — tight but doable 💪</p>
+
+          <label style="display:block; font-weight:700; font-size:15px; margin:0 0 8px;">What's your goal?</label>
+          <div role="radiogroup" aria-label="Fitness goal" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:20px;">
+            <button role="radio" aria-checked="false" style="cursor:pointer; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:12px 6px; font-family:inherit; display:flex; flex-direction:column; align-items:center; gap:4px;">
+              <span style="font-size:20px;">🏋️</span><span style="font-weight:700; font-size:13.5px;">Bulk</span>
+            </button>
+            <button role="radio" aria-checked="true" style="cursor:pointer; background:{{ accentTint }}; border:1.5px solid {{ accent }}; border-radius:{{ rSm }}; padding:12px 6px; font-family:inherit; display:flex; flex-direction:column; align-items:center; gap:4px;">
+              <span style="font-size:20px;">⚖️</span><span style="font-weight:700; font-size:13.5px; color:{{ accentDark }};">Maintain</span>
+            </button>
+            <button role="radio" aria-checked="false" style="cursor:pointer; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:12px 6px; font-family:inherit; display:flex; flex-direction:column; align-items:center; gap:4px;">
+              <span style="font-size:20px;">🔥</span><span style="font-weight:700; font-size:13.5px;">Cut</span>
+            </button>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+            <label style="display:block; font-weight:700; font-size:15px;">Bodyweight
+              <span style="display:flex; align-items:center; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; margin-top:8px; overflow:hidden;">
+                <input type="number" value="170" style="width:100%; border:0; padding:13px 0 13px 14px; font-size:16px; font-family:inherit; background:transparent; color:#2B2420;">
+                <span style="padding:0 14px; color:#8A7D71; font-size:14px; font-weight:400;">lb</span>
+              </span>
+            </label>
+            <label style="display:block; font-weight:700; font-size:15px;">Cooking time/wk
+              <span style="display:flex; align-items:center; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; margin-top:8px; overflow:hidden;">
+                <input type="number" value="120" style="width:100%; border:0; padding:13px 0 13px 14px; font-size:16px; font-family:inherit; background:transparent; color:#2B2420;">
+                <span style="padding:0 14px; color:#8A7D71; font-size:14px; font-weight:400;">min</span>
+              </span>
+            </label>
+          </div>
+
+          <label style="display:block; font-weight:700; font-size:15px; margin:0 0 8px;">How active are you?</label>
+          <div role="radiogroup" aria-label="Activity level" style="display:flex; gap:8px; margin-bottom:26px;">
+            <button role="radio" aria-checked="false" style="cursor:pointer; flex:1; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:10px 8px; font-family:inherit; font-weight:700; font-size:13.5px;">Desk life</button>
+            <button role="radio" aria-checked="true" style="cursor:pointer; flex:1; background:{{ accentTint }}; border:1.5px solid {{ accent }}; color:{{ accentDark }}; border-radius:{{ rPill }}; padding:10px 8px; font-family:inherit; font-weight:700; font-size:13.5px;">Somewhat</button>
+            <button role="radio" aria-checked="false" style="cursor:pointer; flex:1; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:10px 8px; font-family:inherit; font-weight:700; font-size:13.5px;">Very</button>
+          </div>
+
+          <a href="#a3" style="display:block; text-align:center; background:{{ accent }}; color:#fff; text-decoration:none; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:17px; border-radius:{{ rPill }}; padding:16px 20px;">Next: your kitchen →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- A3 Wizard step 2: kitchen + pantry unified -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a3" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A3 · Wizard step 2 — kitchen &amp; pantry (unified)</div>
+      <div data-screen-label="A3 Kitchen and pantry" style="width:390px; background:{{ bg }}; color:#2B2420; font-size:16px; line-height:1.5; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden;">
+        <div style="padding:18px 22px 0; display:flex; align-items:center; gap:14px;">
+          <a href="#a2" aria-label="Back" style="text-decoration:none; color:#8A7D71; font-size:20px;">←</a>
+          <div style="flex:1; display:flex; gap:6px;" role="progressbar" aria-valuenow="2" aria-valuemin="1" aria-valuemax="3" aria-label="Step 2 of 3">
+            <span style="flex:1; height:6px; border-radius:{{ rPill }}; background:{{ accent }};"></span>
+            <span style="flex:1; height:6px; border-radius:{{ rPill }}; background:{{ accent }};"></span>
+            <span style="flex:1; height:6px; border-radius:{{ rPill }}; background:#EBDFD1;"></span>
+          </div>
+          <span style="font-size:13px; color:#8A7D71; font-variant-numeric:tabular-nums;">2/3</span>
+        </div>
+        <div style="padding:26px 22px 30px;">
+          <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:28px; line-height:1.1; letter-spacing:-.015em; margin:0 0 6px;">Your kitchen &amp; shelf</h1>
+          <p style="color:#6B6158; font-size:15px; margin:0 0 20px;">So we only suggest meals you can actually make — and never charge you for stuff you own. <a href="#a4" style="font-weight:600;">Skip, I'll use defaults</a></p>
+
+          <label style="display:block; font-weight:700; font-size:15px; margin:0 0 8px;">Where do you cook?</label>
+          <div role="radiogroup" aria-label="Kitchen preset" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
+            <button role="radio" aria-checked="true" style="cursor:pointer; background:{{ accentTint }}; border:1.5px solid {{ accent }}; border-radius:{{ rSm }}; padding:12px; font-family:inherit; text-align:left;">
+              <span style="display:block; font-size:20px;">🏢</span><span style="font-weight:700; font-size:14px; color:{{ accentDark }};">Apartment</span>
+              <span style="display:block; font-size:12px; color:#8A7D71;">full kitchen</span>
+            </button>
+            <button role="radio" aria-checked="false" style="cursor:pointer; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:12px; font-family:inherit; text-align:left;">
+              <span style="display:block; font-size:20px;">🛏️</span><span style="font-weight:700; font-size:14px;">Dorm</span>
+              <span style="display:block; font-size:12px; color:#8A7D71;">microwave only</span>
+            </button>
+            <button role="radio" aria-checked="false" style="cursor:pointer; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:12px; font-family:inherit; text-align:left;">
+              <span style="display:block; font-size:20px;">👥</span><span style="font-weight:700; font-size:14px;">Shared kitchen</span>
+              <span style="display:block; font-size:12px; color:#8A7D71;">quick sessions</span>
+            </button>
+            <button role="radio" aria-checked="false" style="cursor:pointer; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:12px; font-family:inherit; text-align:left;">
+              <span style="display:block; font-size:20px;">🍱</span><span style="font-weight:700; font-size:14px;">Meal-prepper</span>
+              <span style="display:block; font-size:12px; color:#8A7D71;">batch on Sunday</span>
+            </button>
+          </div>
+          <details style="margin-bottom:20px;">
+            <summary style="cursor:pointer; font-size:14px; font-weight:600; color:{{ accentDark }};">Adjust equipment (microwave, oven, air fryer…)</summary>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; padding-top:10px;">
+              <label style="display:inline-flex; align-items:center; gap:6px; background:{{ accentTint }}; border:1.5px solid {{ accent }}; color:{{ accentDark }}; border-radius:{{ rPill }}; padding:7px 13px; font-size:13.5px; font-weight:600; cursor:pointer;"><input type="checkbox" checked="checked" style="accent-color:{{ accent }};"> Microwave</label>
+              <label style="display:inline-flex; align-items:center; gap:6px; background:{{ accentTint }}; border:1.5px solid {{ accent }}; color:{{ accentDark }}; border-radius:{{ rPill }}; padding:7px 13px; font-size:13.5px; font-weight:600; cursor:pointer;"><input type="checkbox" checked="checked" style="accent-color:{{ accent }};"> Stove</label>
+              <label style="display:inline-flex; align-items:center; gap:6px; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:7px 13px; font-size:13.5px; font-weight:600; cursor:pointer;"><input type="checkbox" style="accent-color:{{ accent }};"> Oven</label>
+              <label style="display:inline-flex; align-items:center; gap:6px; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:7px 13px; font-size:13.5px; font-weight:600; cursor:pointer;"><input type="checkbox" style="accent-color:{{ accent }};"> Air fryer</label>
+              <label style="display:inline-flex; align-items:center; gap:6px; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:7px 13px; font-size:13.5px; font-weight:600; cursor:pointer;"><input type="checkbox" style="accent-color:{{ accent }};"> Rice cooker</label>
+            </div>
+          </details>
+
+          <label style="display:block; font-weight:700; font-size:15px; margin:0 0 4px;">Already have any of these?</label>
+          <p style="font-size:13px; color:#8A7D71; margin:0 0 10px;">Tap what's on your shelf. We'll use it first and take it off your bill.</p>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+            <button style="cursor:pointer; font-family:inherit; background:#E3F0EE; border:1.5px solid #2F7E74; color:#22615A; border-radius:{{ rPill }}; padding:8px 14px; font-size:14px; font-weight:600;">✓ White rice</button>
+            <button style="cursor:pointer; font-family:inherit; background:#E3F0EE; border:1.5px solid #2F7E74; color:#22615A; border-radius:{{ rPill }}; padding:8px 14px; font-size:14px; font-weight:600;">✓ Eggs</button>
+            <button style="cursor:pointer; font-family:inherit; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:8px 14px; font-size:14px; font-weight:600;">Rolled oats</button>
+            <button style="cursor:pointer; font-family:inherit; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:8px 14px; font-size:14px; font-weight:600;">Peanut butter</button>
+            <button style="cursor:pointer; font-family:inherit; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:8px 14px; font-size:14px; font-weight:600;">Pasta</button>
+            <button style="cursor:pointer; font-family:inherit; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:8px 14px; font-size:14px; font-weight:600;">Black beans</button>
+            <button style="cursor:pointer; font-family:inherit; background:#fff; border:1.5px dashed #D0C4B4; color:#8A7D71; border-radius:{{ rPill }}; padding:8px 14px; font-size:14px; font-weight:600;">+ something else</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:10px 14px; margin-bottom:20px;">
+            <span style="font-size:14px; flex:1;">White rice — how much?</span>
+            <input type="number" value="4" style="width:56px; border:1.5px solid {{ cardBrd }}; border-radius:10px; padding:8px; font-size:15px; font-family:inherit; text-align:center;" aria-label="Amount of white rice">
+            <span style="font-size:14px; color:#8A7D71;">cups</span>
+          </div>
+
+          <details style="margin-bottom:24px;">
+            <summary style="cursor:pointer; font-size:14px; font-weight:600; color:{{ accentDark }};">Diet &amp; allergies (vegetarian, gluten-free…)</summary>
+          </details>
+
+          <a href="#a4" style="display:block; text-align:center; background:{{ accent }}; color:#fff; text-decoration:none; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:17px; border-radius:{{ rPill }}; padding:16px 20px;">Next: your targets →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- A4 Targets confirmation -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a4" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A4 · Wizard step 3 — targets confirmation + loading</div>
+      <div data-screen-label="A4 Targets" style="width:390px; background:{{ bg }}; color:#2B2420; font-size:16px; line-height:1.5; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden;">
+        <div style="padding:18px 22px 0; display:flex; align-items:center; gap:14px;">
+          <a href="#a3" aria-label="Back" style="text-decoration:none; color:#8A7D71; font-size:20px;">←</a>
+          <div style="flex:1; display:flex; gap:6px;" role="progressbar" aria-valuenow="3" aria-valuemin="1" aria-valuemax="3" aria-label="Step 3 of 3">
+            <span style="flex:1; height:6px; border-radius:{{ rPill }}; background:{{ accent }};"></span>
+            <span style="flex:1; height:6px; border-radius:{{ rPill }}; background:{{ accent }};"></span>
+            <span style="flex:1; height:6px; border-radius:{{ rPill }}; background:{{ accent }};"></span>
+          </div>
+          <span style="font-size:13px; color:#8A7D71; font-variant-numeric:tabular-nums;">3/3</span>
+        </div>
+        <div style="padding:26px 22px 30px;">
+          <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:28px; line-height:1.1; letter-spacing:-.015em; margin:0 0 6px;">Here's your daily plan</h1>
+          <p style="color:#6B6158; font-size:15px; margin:0 0 20px;">Based on 170 lb, maintain, somewhat active. Looks off? Tap a number to edit it.</p>
+
+          <div style="background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rCard }}; padding:20px; text-align:center; margin-bottom:12px;">
+            <span style="display:block; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#8A7D71;">Calories / day</span>
+            <input type="number" value="2210" style="width:150px; border:0; border-bottom:2px dashed #EBDFD1; background:transparent; text-align:center; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:44px; color:#2B2420; font-variant-numeric:tabular-nums;" aria-label="Daily calories">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:16px;">
+            <div style="background:#E3F0EE; border-radius:{{ rMid }}; padding:14px 10px; text-align:center;">
+              <span style="display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#22615A;">Protein</span>
+              <input type="number" value="145" style="width:64px; border:0; border-bottom:2px dashed #BAD8D2; background:transparent; text-align:center; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#22615A;" aria-label="Protein grams">
+              <span style="display:block; font-size:12px; color:#22615A;">grams</span>
+            </div>
+            <div style="background:#F3ECDF; border-radius:{{ rMid }}; padding:14px 10px; text-align:center;">
+              <span style="display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#8A6D2F;">Carbs</span>
+              <input type="number" value="250" style="width:64px; border:0; border-bottom:2px dashed #E3D5B8; background:transparent; text-align:center; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#8A6D2F;" aria-label="Carb grams">
+              <span style="display:block; font-size:12px; color:#8A6D2F;">grams</span>
+            </div>
+            <div style="background:{{ accentTint }}; border-radius:{{ rMid }}; padding:14px 10px; text-align:center;">
+              <span style="display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:{{ accentDark }};">Fat</span>
+              <input type="number" value="70" style="width:64px; border:0; border-bottom:2px dashed {{ accentTintBrd }}; background:transparent; text-align:center; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:{{ accentDark }};" aria-label="Fat grams">
+              <span style="display:block; font-size:12px; color:{{ accentDark }};">grams</span>
+            </div>
+          </div>
+          <p style="font-size:13px; color:#8A7D71; margin:0 0 22px;">💡 Protein is the one that matters most for your goal — we treat calories as a soft target.</p>
+          <a href="#a5" style="display:block; text-align:center; background:{{ accent }}; color:#fff; text-decoration:none; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:17px; border-radius:{{ rPill }}; padding:16px 20px;">Looks right — build my week 🍳</a>
+
+          <div style="margin-top:34px; border-top:1px dashed #E5DCD0; padding-top:24px; text-align:center;">
+            <div style="font-family:ui-monospace,monospace; font-size:11px; color:#8A7D71; margin-bottom:14px;">loading state — rotating status lines</div>
+            <div style="width:44px; height:44px; margin:0 auto 12px; border:4px solid {{ accentTint }}; border-top-color:{{ accent }}; border-radius:50%; animation:spin .8s linear infinite;"></div>
+            <p style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px; margin:0 0 4px;">Building your week…</p>
+            <p style="color:#6B6158; font-size:14px; margin:0;">Comparing chicken thighs vs. lentils 🐔⚖️🫘<br><span style="color:#8A7D71; font-size:13px;">usually ~20 seconds</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- A5 Meal plan -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a5" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A5 · Meal plan (results)</div>
+      <div data-screen-label="A5 Meal plan" style="width:390px; background:{{ bg }}; color:#2B2420; font-size:16px; line-height:1.5; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden;">
+        <div style="background:{{ band }}; color:#fff; padding:24px 22px 20px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <p style="margin:0 0 2px; font-size:13px; color:#A8C6BF; font-weight:600; text-transform:uppercase; letter-spacing:.1em;">Your week, sorted</p>
+              <p style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:40px; line-height:1; font-variant-numeric:tabular-nums;">$37.86 <span style="font-size:16px; font-weight:500; color:#A8C6BF;">of $40</span></p>
+            </div>
+            <button aria-label="Start over" style="cursor:pointer; background:rgba(255,255,255,.12); border:0; color:#fff; border-radius:10px; padding:8px 10px; font-size:13px; font-family:inherit;">↺</button>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:14px;">
+            <span style="background:rgba(255,255,255,.14); border-radius:{{ rPill }}; padding:5px 12px; font-size:12.5px; font-weight:600;">💪 136g protein/day</span>
+            <span style="background:rgba(255,255,255,.14); border-radius:{{ rPill }}; padding:5px 12px; font-size:12.5px; font-weight:600;">⏱ 105 min cooking</span>
+            <span style="background:rgba(255,255,255,.14); border-radius:{{ rPill }}; padding:5px 12px; font-size:12.5px; font-weight:600;">💚 $2.14 left</span>
+          </div>
+        </div>
+        <div role="tablist" aria-label="Plan variant" style="display:flex; gap:8px; padding:16px 22px 0;">
+          <button role="tab" aria-selected="true" style="cursor:pointer; flex:1; font-family:inherit; background:#2B2420; color:#fff; border:0; border-radius:{{ rPill }}; padding:10px 12px; font-weight:700; font-size:14px;">Budget-first</button>
+          <button role="tab" aria-selected="false" style="cursor:pointer; flex:1; font-family:inherit; background:#fff; color:#6B6158; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:10px 12px; font-weight:700; font-size:14px;">Protein-first</button>
+        </div>
+        <div style="padding:18px 22px 26px; display:flex; flex-direction:column; gap:10px;">
+          <div style="background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center;">
+            <span style="width:44px; height:44px; border-radius:12px; background:#F3ECDF; display:grid; place-items:center; font-size:22px;">🍳</span>
+            <span>
+              <span style="display:block; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:#2F7E74;">Breakfast · ×7</span>
+              <span style="display:block; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:16px; line-height:1.2;">PB overnight oats</span>
+              <span style="display:block; font-size:12.5px; color:#8A7D71; font-variant-numeric:tabular-nums;">520 kcal · 28g protein · no-cook</span>
+            </span>
+            <span style="color:#C9BBA9; font-size:18px;">›</span>
+          </div>
+          <div style="background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center;">
+            <span style="width:44px; height:44px; border-radius:12px; background:#E3F0EE; display:grid; place-items:center; font-size:22px;">🥗</span>
+            <span>
+              <span style="display:block; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:#2F7E74;">Lunch · ×5</span>
+              <span style="display:block; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:16px; line-height:1.2;">Chicken thigh &amp; rice bowls</span>
+              <span style="display:block; font-size:12.5px; color:#8A7D71; font-variant-numeric:tabular-nums;">640 kcal · 42g protein · 45 min batch</span>
+            </span>
+            <span style="color:#C9BBA9; font-size:18px;">›</span>
+          </div>
+          <div style="background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center;">
+            <span style="width:44px; height:44px; border-radius:12px; background:{{ accentTint }}; display:grid; place-items:center; font-size:22px;">🍽️</span>
+            <span>
+              <span style="display:block; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:#2F7E74;">Dinner · ×7</span>
+              <span style="display:block; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:16px; line-height:1.2;">Lentil &amp; egg fried rice</span>
+              <span style="display:block; font-size:12.5px; color:#8A7D71; font-variant-numeric:tabular-nums;">610 kcal · 34g protein · 30 min</span>
+            </span>
+            <span style="color:#C9BBA9; font-size:18px;">›</span>
+          </div>
+          <button style="cursor:pointer; font-family:inherit; background:none; border:1.5px dashed #D0C4B4; color:#8A7D71; border-radius:{{ rSm }}; padding:11px; font-size:14px; font-weight:600;">↻ Swap a meal I don't like</button>
+        </div>
+        <div style="position:sticky; bottom:0; background:linear-gradient(transparent, {{ bg }} 30%); padding:10px 22px 20px; display:flex; gap:10px;">
+          <a href="#a6" style="flex:1.4; display:block; text-align:center; background:{{ accent }}; color:#fff; text-decoration:none; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:15.5px; border-radius:{{ rPill }}; padding:15px 10px; box-shadow:0 6px 16px -6px {{ accentGlow }};">🛒 Shopping list · $37.86</a>
+          <a href="#a-save" style="flex:1; display:block; text-align:center; background:#fff; color:{{ accentDark }}; border:1.5px solid {{ accentTintBrd }}; text-decoration:none; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:15.5px; border-radius:{{ rPill }}; padding:15px 10px;">Save week</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- A6 Shopping list sheet -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a6" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A6 · Shopping list (bottom sheet over plan)</div>
+      <div data-screen-label="A6 Shopping list" style="width:390px; background:#8E867C; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden; position:relative; display:flex; flex-direction:column; justify-content:flex-end; min-height:700px;">
+        <div style="background:#fff; border-radius:{{ rCard }} 24px 24px 24px; margin-top:70px; padding:10px 22px 26px; box-shadow:0 -12px 40px rgba(43,36,32,.25);">
+          <div style="width:44px; height:5px; border-radius:{{ rPill }}; background:#E5DCD0; margin:6px auto 14px;"></div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
+            <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; margin:0;">Shopping list</h2>
+            <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px; color:{{ accentDark }}; font-variant-numeric:tabular-nums;">$37.86</span>
+          </div>
+          <p style="color:#8A7D71; font-size:13.5px; margin:0 0 14px;">9 items · check them off as you shop · <span style="color:#2F7E74; font-weight:600;">saved $3.20 with stuff you own</span></p>
+          <div style="display:flex; flex-direction:column;">
+            <label style="display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid #F3EDE4; cursor:pointer;">
+              <input type="checkbox" checked="checked" style="width:22px; height:22px; accent-color:#2F7E74;">
+              <span><span style="display:block; font-weight:700; font-size:15px; text-decoration:line-through; color:#8A7D71;">Chicken thighs</span><span style="display:block; font-size:12.5px; color:#8A7D71;">2 × 1 lb tray</span></span>
+              <span style="font-variant-numeric:tabular-nums; font-weight:700; color:#8A7D71; text-decoration:line-through;">$8.98</span>
+            </label>
+            <label style="display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid #F3EDE4; cursor:pointer;">
+              <input type="checkbox" style="width:22px; height:22px; accent-color:#2F7E74;">
+              <span><span style="display:block; font-weight:700; font-size:15px;">Rolled oats</span><span style="display:block; font-size:12.5px; color:#8A7D71;">1 × 42 oz tub</span></span>
+              <span style="font-variant-numeric:tabular-nums; font-weight:700;">$4.29</span>
+            </label>
+            <label style="display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid #F3EDE4; cursor:pointer;">
+              <input type="checkbox" style="width:22px; height:22px; accent-color:#2F7E74;">
+              <span><span style="display:block; font-weight:700; font-size:15px;">White rice <span style="background:#E3F0EE; color:#22615A; font-size:11px; font-weight:700; border-radius:{{ rPill }}; padding:2px 8px; vertical-align:2px;">you own some</span></span><span style="display:block; font-size:12.5px; color:#8A7D71;">buying only the rest · 1 × 2 lb bag</span></span>
+              <span style="font-variant-numeric:tabular-nums; font-weight:700;">$2.49</span>
+            </label>
+            <label style="display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid #F3EDE4; cursor:pointer;">
+              <input type="checkbox" style="width:22px; height:22px; accent-color:#2F7E74;">
+              <span><span style="display:block; font-weight:700; font-size:15px;">Greek yogurt</span><span style="display:block; font-size:12.5px; color:#8A7D71;">1 × 32 oz tub</span></span>
+              <span style="font-variant-numeric:tabular-nums; font-weight:700;">$5.79</span>
+            </label>
+          </div>
+          <details style="margin-top:12px;">
+            <summary style="cursor:pointer; font-size:14px; font-weight:600; color:{{ accentDark }};">Pantry stock-up (one-time buys) · $6.40</summary>
+          </details>
+          <button style="cursor:pointer; width:100%; margin-top:16px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:16px; background:#2B2420; color:#fff; border:0; border-radius:{{ rPill }}; padding:15px;">Share / copy list 📋</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- A7 Save / create account -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a-save" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A7 · Save plan + create account (one screen, sheet)</div>
+      <div data-screen-label="A7 Save plan" style="width:390px; background:#8E867C; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; min-height:640px;">
+        <div style="background:#fff; border-radius:{{ rCard }}; padding:10px 22px 28px; box-shadow:0 -12px 40px rgba(43,36,32,.25);">
+          <div style="width:44px; height:5px; border-radius:{{ rPill }}; background:#E5DCD0; margin:6px auto 16px;"></div>
+          <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; margin:0 0 6px;">Keep this week 🔒</h2>
+          <p style="color:#6B6158; font-size:14.5px; margin:0 0 18px; text-wrap:pretty;">One account, three perks: this plan saved, your pantry remembered for next week, and mid-week fixes when life happens.</p>
+          <div style="background:{{ bg }}; border:1px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:12px 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:14px;"><strong>Saving:</strong> Budget-first · $37.86</span>
+            <button style="cursor:pointer; background:none; border:0; color:{{ accentDark }}; font-weight:600; font-size:13.5px; font-family:inherit; text-decoration:underline;">change</button>
+          </div>
+          <label style="display:block; font-weight:700; font-size:14.5px; margin-bottom:14px;">School email
+            <input type="email" placeholder="you@school.edu" style="display:block; width:100%; box-sizing:border-box; margin-top:7px; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:13px 14px; font-size:16px; font-family:inherit;">
+          </label>
+          <label style="display:block; font-weight:700; font-size:14.5px; margin-bottom:18px;">Password
+            <input type="password" placeholder="8+ characters" style="display:block; width:100%; box-sizing:border-box; margin-top:7px; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:13px 14px; font-size:16px; font-family:inherit;">
+          </label>
+          <button style="cursor:pointer; width:100%; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:16.5px; background:{{ accent }}; color:#fff; border:0; border-radius:{{ rPill }}; padding:16px;">Create account &amp; save</button>
+          <p style="text-align:center; font-size:14px; color:#6B6158; margin:14px 0 0;">Have an account? <a href="#a-save" style="font-weight:700;">Log in instead</a></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- A8 Saved plans -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A8 · Saved plans (account home)</div>
+      <div data-screen-label="A8 Saved plans" style="width:390px; background:{{ bg }}; color:#2B2420; font-size:16px; line-height:1.5; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden;">
+        <div style="padding:22px 22px 0; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px;">grocery buddy</span>
+          <span style="width:34px; height:34px; border-radius:{{ rPill }}; background:{{ accentTint }}; color:{{ accentDark }}; display:grid; place-items:center; font-weight:800; font-size:14px;">S</span>
+        </div>
+        <div style="padding:24px 22px 28px;">
+          <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:28px; margin:0 0 4px;">Welcome back, Sam</h1>
+          <p style="color:#6B6158; font-size:14.5px; margin:0 0 18px;">Your pantry has <strong>7 items</strong> · <a href="#a3" style="font-weight:600;">update it</a></p>
+          <a href="#a2" style="display:block; text-align:center; background:{{ accent }}; color:#fff; text-decoration:none; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:16px; border-radius:{{ rPill }}; padding:15px; margin-bottom:24px;">Plan a new week →</a>
+          <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px; margin:0 0 12px;">Saved weeks</h2>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <a href="#a5" style="text-decoration:none; color:inherit; background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:1fr auto; gap:4px; align-items:center;">
+              <span>
+                <span style="display:block; font-weight:700; font-size:15.5px; font-family:'Bricolage Grotesque',sans-serif;">Week of Jul 1</span>
+                <span style="display:block; font-size:13px; color:#8A7D71; font-variant-numeric:tabular-nums;">$37.86 of $40 · maintain · 136g protein/day</span>
+              </span>
+              <span style="background:#E3F0EE; color:#22615A; font-size:12px; font-weight:700; border-radius:{{ rPill }}; padding:4px 10px;">✓ ready</span>
+            </a>
+            <a href="#a5" style="text-decoration:none; color:inherit; background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:1fr auto; gap:4px; align-items:center;">
+              <span>
+                <span style="display:block; font-weight:700; font-size:15.5px; font-family:'Bricolage Grotesque',sans-serif;">Week of Jun 24</span>
+                <span style="display:block; font-size:13px; color:#8A7D71; font-variant-numeric:tabular-nums;">$41.02 of $40 · maintain</span>
+              </span>
+              <span style="background:#FAEDDC; color:#9A6A1F; font-size:12px; font-weight:700; border-radius:{{ rPill }}; padding:4px 10px;">needs fixes</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- A9 Feedback popup -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A9 · Feedback + newsletter (card, appears after first save)</div>
+      <div data-screen-label="A9 Feedback popup" style="width:390px; background:#8E867C; border-radius:{{ rCard }}; border:1px solid #E5DCD0; display:grid; place-items:center; min-height:560px; padding:20px 0;">
+        <div role="dialog" aria-label="Feedback and newsletter" style="width:318px; background:#fff; border-radius:{{ rCard }}; padding:22px; box-shadow:0 24px 60px rgba(43,36,32,.35); position:relative;">
+          <button aria-label="Close" style="cursor:pointer; position:absolute; top:12px; right:12px; width:32px; height:32px; border-radius:{{ rPill }}; border:0; background:#F3EDE4; color:#8A7D71; font-size:15px;">✕</button>
+          <span style="font-size:30px;">🫶</span>
+          <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:21px; margin:8px 0 6px;">How'd we do?</h2>
+          <p style="color:#6B6158; font-size:14px; margin:0 0 14px;">You just saved your first week. Two seconds of honesty helps us a ton.</p>
+          <div role="radiogroup" aria-label="Rating" style="display:flex; gap:8px; margin-bottom:14px;">
+            <button style="cursor:pointer; flex:1; font-size:22px; background:{{ bg }}; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:9px 0;">😖</button>
+            <button style="cursor:pointer; flex:1; font-size:22px; background:{{ bg }}; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:9px 0;">😕</button>
+            <button style="cursor:pointer; flex:1; font-size:22px; background:{{ bg }}; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:9px 0;">🙂</button>
+            <button style="cursor:pointer; flex:1; font-size:22px; background:{{ accentTint }}; border:1.5px solid {{ accent }}; border-radius:{{ rSm }}; padding:9px 0;">🤩</button>
+          </div>
+          <textarea placeholder="Anything we should fix? (optional)" style="width:100%; box-sizing:border-box; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:12px; font-size:14px; font-family:inherit; min-height:64px; resize:vertical; margin-bottom:12px;"></textarea>
+          <label style="display:flex; align-items:flex-start; gap:9px; font-size:13.5px; color:#6B6158; margin-bottom:14px; cursor:pointer;">
+            <input type="checkbox" checked="checked" style="width:18px; height:18px; accent-color:{{ accent }}; margin-top:1px;">
+            <span>Email me one cheap-protein recipe a week. No spam, unsubscribe anytime.</span>
+          </label>
+          <button style="cursor:pointer; width:100%; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:15.5px; background:{{ accent }}; color:#fff; border:0; border-radius:{{ rPill }}; padding:14px;">Send it</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================================================================
+     COACH — DETAIL SCREENS & STATES (A10–A16)
+     ================================================================ -->
+<section id="2a" style="padding:24px 48px 64px; display:flex; flex-direction:column; gap:20px; border-top:2px dashed #C9CBC2; margin-top:16px;">
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <span style="background:{{ accent }}; color:#fff; font-family:ui-monospace,monospace; font-size:13px; font-weight:700; padding:4px 10px; border-radius:6px;">A10–A16</span>
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-size:24px; font-weight:800; color:#2B2420; margin:0;">Coach — detail screens &amp; states</h1>
+    <span style="font-size:14px; color:#6B6158;">Meal detail · login · over-budget · failure · empty states · repair flow · desktop plan</span>
+  </div>
+
+  <div style="display:flex; gap:32px; align-items:flex-start; flex-wrap:wrap;">
+
+    <!-- A10 Meal detail sheet -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a10" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A10 · Meal detail (bottom sheet from a meal card)</div>
+      <div data-screen-label="A10 Meal detail" style="width:390px; background:#8E867C; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; min-height:700px;">
+        <div style="background:#fff; border-radius:{{ rCard }}; padding:10px 22px 26px; box-shadow:0 -12px 40px rgba(43,36,32,.25);">
+          <div style="width:44px; height:5px; border-radius:{{ rPill }}; background:#E5DCD0; margin:6px auto 14px;"></div>
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+            <span style="width:48px; height:48px; border-radius:{{ rSm }}; background:{{ accentTint }}; display:grid; place-items:center; font-size:24px;">🥗</span>
+            <div>
+              <span style="display:block; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:{{ accentDark }};">Lunch · ×5 this week</span>
+              <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:21px; margin:0;">Chicken thigh &amp; rice bowls</h2>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; margin:12px 0 16px; flex-wrap:wrap;">
+            <span style="background:{{ bg }}; border:1px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:5px 12px; font-size:12.5px; font-weight:600; font-variant-numeric:tabular-nums;">640 kcal</span>
+            <span style="background:{{ accentTint }}; color:{{ accentDark }}; border-radius:{{ rPill }}; padding:5px 12px; font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums;">42g protein</span>
+            <span style="background:{{ bg }}; border:1px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:5px 12px; font-size:12.5px; font-weight:600;">⏱ 45 min, one batch</span>
+            <span style="background:{{ bg }}; border:1px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:5px 12px; font-size:12.5px; font-weight:600;">$1.62/serving</span>
+          </div>
+          <h3 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:14px; text-transform:uppercase; letter-spacing:.07em; color:#8A7D71; margin:0 0 8px;">You'll use</h3>
+          <div style="display:flex; flex-direction:column; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid #F3EDE4; font-size:14.5px;"><span>Chicken thighs</span><span style="color:#8A7D71; font-variant-numeric:tabular-nums;">160 g / serving · 800 g total</span></div>
+            <div style="display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid #F3EDE4; font-size:14.5px;"><span>White rice <span style="background:{{ accentTint }}; color:{{ accentDark }}; font-size:11px; font-weight:700; border-radius:{{ rPill }}; padding:2px 8px;">from your shelf</span></span><span style="color:#8A7D71; font-variant-numeric:tabular-nums;">90 g / serving</span></div>
+            <div style="display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid #F3EDE4; font-size:14.5px;"><span>Frozen broccoli</span><span style="color:#8A7D71; font-variant-numeric:tabular-nums;">100 g / serving</span></div>
+            <div style="display:flex; justify-content:space-between; gap:10px; padding:9px 0; font-size:14.5px;"><span>Soy sauce, garlic powder</span><span style="color:#8A7D71;">pantry staples</span></div>
+          </div>
+          <h3 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:14px; text-transform:uppercase; letter-spacing:.07em; color:#8A7D71; margin:0 0 8px;">How to make it (once, Sunday)</h3>
+          <ol style="margin:0 0 18px; padding-left:22px; font-size:14.5px; display:flex; flex-direction:column; gap:7px; color:#2B2420;">
+            <li>Rice in the cooker or pot — 20 min.</li>
+            <li>Season thighs, pan-sear 6–7 min a side.</li>
+            <li>Steam broccoli in the microwave, 4 min.</li>
+            <li>Split into 5 containers. Fridge ≤4 days, freeze the rest.</li>
+          </ol>
+          <div style="display:flex; gap:10px;">
+            <button style="cursor:pointer; flex:1; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:15px; background:#fff; color:{{ accentDark }}; border:1.5px solid {{ accentTintBrd }}; border-radius:{{ rPill }}; padding:13px 8px;">↻ Swap this meal</button>
+            <button style="cursor:pointer; flex:1; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:15px; background:#2B2420; color:#fff; border:0; border-radius:{{ rPill }}; padding:13px 8px;">Done</button>
+          </div>
+          <p style="font-size:12.5px; color:#8A7D71; margin:12px 0 0; text-align:center;">Swapping keeps you under budget — we re-balance the list automatically.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- A11 Login -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a11" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A11 · Log in</div>
+      <div data-screen-label="A11 Login" style="width:390px; background:{{ bg }}; color:#2B2420; font-size:16px; line-height:1.5; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden;">
+        <div style="padding:22px 22px 0; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px;">grocery buddy</span>
+          <a href="#1a" style="font-size:14px; font-weight:600; color:{{ accentDark }}; text-decoration:none;">← Back</a>
+        </div>
+        <div style="padding:34px 22px 34px;">
+          <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:30px; letter-spacing:-.015em; margin:0 0 6px;">Welcome back 👋</h1>
+          <p style="color:#6B6158; font-size:15px; margin:0 0 22px;">Your pantry and saved weeks are waiting.</p>
+          <label style="display:block; font-weight:700; font-size:14.5px; margin-bottom:14px;">Email
+            <input type="email" placeholder="you@school.edu" style="display:block; width:100%; box-sizing:border-box; margin-top:7px; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:13px 14px; font-size:16px; font-family:inherit;">
+          </label>
+          <label style="display:block; font-weight:700; font-size:14.5px; margin-bottom:6px;">Password
+            <input type="password" style="display:block; width:100%; box-sizing:border-box; margin-top:7px; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rSm }}; padding:13px 14px; font-size:16px; font-family:inherit;">
+          </label>
+          <p style="margin:0 0 20px;"><a href="#a11" style="font-size:13.5px; font-weight:600;">Forgot it?</a></p>
+          <button style="cursor:pointer; width:100%; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:16.5px; background:{{ accent }}; color:#fff; border:0; border-radius:{{ rPill }}; padding:16px;">Log in</button>
+          <div style="display:flex; align-items:center; gap:12px; margin:22px 0;">
+            <span style="flex:1; height:1px; background:{{ cardBrd }};"></span>
+            <span style="font-size:12.5px; color:#8A7D71; font-weight:600;">NEW HERE?</span>
+            <span style="flex:1; height:1px; background:{{ cardBrd }};"></span>
+          </div>
+          <a href="#a2" style="display:block; text-align:center; text-decoration:none; background:#fff; color:{{ accentDark }}; border:1.5px solid {{ accentTintBrd }}; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:16px; border-radius:{{ rPill }}; padding:15px;">Plan a week first — no account needed</a>
+          <p style="text-align:center; font-size:13px; color:#8A7D71; margin:12px 0 0;">You can create an account when you save it.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- A12 Over budget -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a12" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A12 · Plan result — over budget (recovery, never a dead end)</div>
+      <div data-screen-label="A12 Over budget" style="width:390px; background:{{ bg }}; color:#2B2420; font-size:16px; line-height:1.5; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden;">
+        <div style="background:#7A4A1E; color:#fff; padding:24px 22px 20px;">
+          <p style="margin:0 0 2px; font-size:13px; color:#E8C89E; font-weight:600; text-transform:uppercase; letter-spacing:.1em;">Close — but over budget</p>
+          <p style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:40px; line-height:1; font-variant-numeric:tabular-nums;">$41.02 <span style="font-size:16px; font-weight:500; color:#E8C89E;">of $40</span></p>
+          <div style="display:flex; gap:8px; margin-top:14px;">
+            <span style="background:rgba(255,255,255,.14); border-radius:{{ rPill }}; padding:5px 12px; font-size:12.5px; font-weight:600;">⚠ $1.02 over</span>
+            <span style="background:rgba(255,255,255,.14); border-radius:{{ rPill }}; padding:5px 12px; font-size:12.5px; font-weight:600;">💪 protein hit: 145g ✓</span>
+          </div>
+        </div>
+        <div style="padding:20px 22px 28px;">
+          <p style="font-size:14.5px; color:#6B6158; margin:0 0 14px;">Your protein target is ambitious for $40. Three ways out — pick one:</p>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <button style="cursor:pointer; text-align:left; font-family:inherit; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center;">
+              <span style="width:40px; height:40px; border-radius:{{ rSm }}; background:{{ accentTint }}; display:grid; place-items:center; font-size:19px;">🔁</span>
+              <span><span style="display:block; font-weight:700; font-size:15px;">Swap the priciest meal</span><span style="display:block; font-size:13px; color:#8A7D71;">chicken bowls → lentil bowls saves ~$2.40</span></span>
+              <span style="color:#C9BBA9;">›</span>
+            </button>
+            <button style="cursor:pointer; text-align:left; font-family:inherit; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center;">
+              <span style="width:40px; height:40px; border-radius:{{ rSm }}; background:{{ accentTint }}; display:grid; place-items:center; font-size:19px;">💪</span>
+              <span><span style="display:block; font-weight:700; font-size:15px;">Relax protein to 135g</span><span style="display:block; font-size:13px; color:#8A7D71;">still solid for maintaining — lands at $38.20</span></span>
+              <span style="color:#C9BBA9;">›</span>
+            </button>
+            <button style="cursor:pointer; text-align:left; font-family:inherit; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center;">
+              <span style="width:40px; height:40px; border-radius:{{ rSm }}; background:{{ accentTint }}; display:grid; place-items:center; font-size:19px;">💵</span>
+              <span><span style="display:block; font-weight:700; font-size:15px;">Bump budget to $45</span><span style="display:block; font-size:13px; color:#8A7D71;">keep everything as-is</span></span>
+              <span style="color:#C9BBA9;">›</span>
+            </button>
+          </div>
+          <p style="text-align:center; margin:16px 0 0;"><a href="#a5" style="font-size:14px; font-weight:600;">or keep this plan anyway →</a></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- A13 Failure -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a13" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A13 · Generation failed / timeout</div>
+      <div data-screen-label="A13 Failure" style="width:390px; background:{{ bg }}; color:#2B2420; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden; display:grid; place-items:center; min-height:560px;">
+        <div style="text-align:center; padding:0 30px; max-width:320px;">
+          <span style="font-size:44px;">🍳💨</span>
+          <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:26px; margin:14px 0 8px;">That one stumped us</h1>
+          <p style="color:#6B6158; font-size:15px; margin:0 0 20px; text-wrap:pretty;">We couldn't fit everything this time. Your answers are safe — a small tweak (a few more dollars, or fewer restrictions) usually does it.</p>
+          <button style="cursor:pointer; width:100%; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:16px; background:{{ accent }}; color:#fff; border:0; border-radius:{{ rPill }}; padding:15px; margin-bottom:10px;">Try again</button>
+          <a href="#a4" style="display:block; text-align:center; text-decoration:none; color:{{ accentDark }}; font-weight:700; font-size:14.5px; padding:10px;">← Back to my targets</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- A14 Empty states -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a14" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A14 · Empty states — no saved weeks / empty pantry</div>
+      <div data-screen-label="A14 Empty states" style="width:390px; background:{{ bg }}; color:#2B2420; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden;">
+        <div style="padding:22px 22px 0; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px;">grocery buddy</span>
+          <span style="width:34px; height:34px; border-radius:{{ rPill }}; background:{{ accentTint }}; color:{{ accentDark }}; display:grid; place-items:center; font-weight:800; font-size:14px;">S</span>
+        </div>
+        <div style="padding:24px 22px 30px;">
+          <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:28px; margin:0 0 18px;">Welcome, Sam</h1>
+          <div style="background:#fff; border:1.5px dashed #D0C4B4; border-radius:{{ rMid }}; padding:26px 20px; text-align:center; margin-bottom:14px;">
+            <span style="font-size:30px;">🗓️</span>
+            <p style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:17px; margin:8px 0 4px;">No weeks saved yet</p>
+            <p style="color:#8A7D71; font-size:14px; margin:0 0 14px;">Your first plan takes about a minute.</p>
+            <a href="#a2" style="display:inline-block; text-decoration:none; background:{{ accent }}; color:#fff; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:15px; border-radius:{{ rPill }}; padding:13px 24px;">Plan my first week →</a>
+          </div>
+          <div style="background:#fff; border:1.5px dashed #D0C4B4; border-radius:{{ rMid }}; padding:20px; text-align:center;">
+            <span style="font-size:26px;">🥫</span>
+            <p style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:16px; margin:6px 0 4px;">Nothing on your shelf</p>
+            <p style="color:#8A7D71; font-size:13.5px; margin:0 0 12px;">Tap what you already have — it comes off every grocery bill.</p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+              <button style="cursor:pointer; font-family:inherit; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:7px 13px; font-size:13.5px; font-weight:600;">White rice</button>
+              <button style="cursor:pointer; font-family:inherit; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:7px 13px; font-size:13.5px; font-weight:600;">Eggs</button>
+              <button style="cursor:pointer; font-family:inherit; background:#fff; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:7px 13px; font-size:13.5px; font-weight:600;">Oats</button>
+              <button style="cursor:pointer; font-family:inherit; background:#fff; border:1.5px dashed #D0C4B4; color:#8A7D71; border-radius:{{ rPill }}; padding:7px 13px; font-size:13.5px; font-weight:600;">+ more</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- A15 Repair flow -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a15" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A15 · Saved plan “needs fixes” — repair flow</div>
+      <div data-screen-label="A15 Repair" style="width:390px; background:{{ bg }}; color:#2B2420; border-radius:{{ rCard }}; border:1px solid #E5DCD0; overflow:hidden;">
+        <div style="padding:20px 22px 0;">
+          <a href="#1a" style="font-size:13.5px; color:#8A7D71; text-decoration:none;">← All saved weeks</a>
+          <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:26px; margin:10px 0 14px;">Week of Jun 24</h1>
+        </div>
+        <div style="margin:0 22px 16px; background:#FAEDDC; border:1.5px solid #E8C89E; border-radius:{{ rMid }}; padding:14px 16px;">
+          <p style="margin:0 0 4px; font-weight:800; font-family:'Bricolage Grotesque',sans-serif; font-size:15px; color:#7A4A1E;">⚠ This week needs 2 fixes</p>
+          <p style="margin:0 0 12px; font-size:13.5px; color:#7A4A1E;">Prices changed since you saved it — it's now $1.02 over, and eggs left your pantry.</p>
+          <button style="cursor:pointer; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:14.5px; background:#7A4A1E; color:#fff; border:0; border-radius:{{ rPill }}; padding:11px 20px;">Fix it for me →</button>
+        </div>
+        <div style="padding:0 22px 28px; display:flex; flex-direction:column; gap:10px;">
+          <div style="background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:13px 16px; display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; opacity:.55;">
+            <span style="width:40px; height:40px; border-radius:{{ rSm }}; background:{{ bg }}; display:grid; place-items:center; font-size:20px;">🍳</span>
+            <span><span style="display:block; font-weight:700; font-size:15px;">PB overnight oats</span><span style="display:block; font-size:12.5px; color:#8A7D71;">fine as-is</span></span>
+            <span style="color:#C9BBA9;">›</span>
+          </div>
+          <div style="background:#fff; border:1.5px solid #E8C89E; border-radius:{{ rMid }}; padding:13px 16px; display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center;">
+            <span style="width:40px; height:40px; border-radius:{{ rSm }}; background:#FAEDDC; display:grid; place-items:center; font-size:20px;">🥚</span>
+            <span><span style="display:block; font-weight:700; font-size:15px;">Egg fried rice</span><span style="display:block; font-size:12.5px; color:#9A6A1F; font-weight:600;">⚠ uses eggs you no longer have (+$3.49)</span></span>
+            <span style="color:#C9BBA9;">›</span>
+          </div>
+          <div style="background:#fff; border:1.5px solid #E8C89E; border-radius:{{ rMid }}; padding:13px 16px; display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center;">
+            <span style="width:40px; height:40px; border-radius:{{ rSm }}; background:#FAEDDC; display:grid; place-items:center; font-size:20px;">🍗</span>
+            <span><span style="display:block; font-weight:700; font-size:15px;">Chicken rice bowls</span><span style="display:block; font-size:12.5px; color:#9A6A1F; font-weight:600;">⚠ price up $0.80 — cheaper cut available</span></span>
+            <span style="color:#C9BBA9;">›</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- A16 Desktop plan -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div id="a16" style="font-family:ui-monospace,monospace; font-size:12px; color:#6B6158;">A16 · Desktop ≥1024px — plan page, shopping list becomes a sticky right rail</div>
+      <div data-screen-label="A16 Desktop plan" style="width:900px; background:{{ bg }}; color:#2B2420; border-radius:{{ rMid }}; border:1px solid #E5DCD0; overflow:hidden;">
+        <div style="padding:16px 28px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid {{ cardBrd }};">
+          <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:18px;">grocery buddy</span>
+          <div style="display:flex; gap:18px; align-items:center;">
+            <a href="#a14" style="font-size:14px; font-weight:600; color:#6B6158; text-decoration:none;">Saved weeks</a>
+            <span style="width:32px; height:32px; border-radius:{{ rPill }}; background:{{ accentTint }}; color:{{ accentDark }}; display:grid; place-items:center; font-weight:800; font-size:13px;">S</span>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 340px; gap:24px; padding:24px 28px 32px;">
+          <div>
+            <div style="background:{{ band }}; color:#fff; border-radius:{{ rMid }}; padding:20px 24px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+              <div>
+                <p style="margin:0 0 2px; font-size:12.5px; color:rgba(255,255,255,.65); font-weight:600; text-transform:uppercase; letter-spacing:.1em;">Your week, sorted</p>
+                <p style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:34px; line-height:1; font-variant-numeric:tabular-nums;">$37.86 <span style="font-size:15px; font-weight:500; color:rgba(255,255,255,.65);">of $40</span></p>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <span style="background:rgba(255,255,255,.14); border-radius:{{ rPill }}; padding:5px 12px; font-size:12.5px; font-weight:600;">💪 136g/day</span>
+                <span style="background:rgba(255,255,255,.14); border-radius:{{ rPill }}; padding:5px 12px; font-size:12.5px; font-weight:600;">⏱ 105 min</span>
+              </div>
+            </div>
+            <div role="tablist" style="display:flex; gap:8px; margin-bottom:14px;">
+              <button role="tab" aria-selected="true" style="cursor:pointer; font-family:inherit; background:#2B2420; color:#fff; border:0; border-radius:{{ rPill }}; padding:9px 18px; font-weight:700; font-size:13.5px;">Budget-first</button>
+              <button role="tab" aria-selected="false" style="cursor:pointer; font-family:inherit; background:#fff; color:#6B6158; border:1.5px solid {{ cardBrd }}; border-radius:{{ rPill }}; padding:9px 18px; font-weight:700; font-size:13.5px;">Protein-first</button>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <div style="background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:center;">
+                <span style="width:42px; height:42px; border-radius:{{ rSm }}; background:{{ accentTint }}; display:grid; place-items:center; font-size:21px;">🍳</span>
+                <span><span style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:{{ accentDark }};">Breakfast ×7</span><span style="display:block; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px;">PB overnight oats</span><span style="display:block; font-size:12px; color:#8A7D71;">520 kcal · 28g P · no-cook</span></span>
+              </div>
+              <div style="background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:center;">
+                <span style="width:42px; height:42px; border-radius:{{ rSm }}; background:{{ accentTint }}; display:grid; place-items:center; font-size:21px;">🥗</span>
+                <span><span style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:{{ accentDark }};">Lunch ×5</span><span style="display:block; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px;">Chicken &amp; rice bowls</span><span style="display:block; font-size:12px; color:#8A7D71;">640 kcal · 42g P · 45 min</span></span>
+              </div>
+              <div style="background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:center;">
+                <span style="width:42px; height:42px; border-radius:{{ rSm }}; background:{{ accentTint }}; display:grid; place-items:center; font-size:21px;">🍽️</span>
+                <span><span style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:{{ accentDark }};">Dinner ×7</span><span style="display:block; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px;">Lentil &amp; egg fried rice</span><span style="display:block; font-size:12px; color:#8A7D71;">610 kcal · 34g P · 30 min</span></span>
+              </div>
+              <div style="background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:14px 16px; display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:center;">
+                <span style="width:42px; height:42px; border-radius:{{ rSm }}; background:{{ accentTint }}; display:grid; place-items:center; font-size:21px;">🍎</span>
+                <span><span style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:{{ accentDark }};">Snack ×7</span><span style="display:block; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px;">Greek yogurt cup</span><span style="display:block; font-size:12px; color:#8A7D71;">180 kcal · 17g P · 0 min</span></span>
+              </div>
+            </div>
+          </div>
+          <div style="background:#fff; border:1px solid {{ cardBrd }}; border-radius:{{ rMid }}; padding:18px 20px; align-self:start;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;">
+              <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:17px; margin:0;">🛒 Shopping list</h2>
+              <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:15px; color:{{ accentDark }}; font-variant-numeric:tabular-nums;">$37.86</span>
+            </div>
+            <label style="display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:9px 0; border-bottom:1px solid #F3EDE4; cursor:pointer; font-size:13.5px;"><input type="checkbox" style="width:18px; height:18px; accent-color:{{ accent }};"><span>Chicken thighs · 2×1 lb</span><span style="font-variant-numeric:tabular-nums; font-weight:700;">$8.98</span></label>
+            <label style="display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:9px 0; border-bottom:1px solid #F3EDE4; cursor:pointer; font-size:13.5px;"><input type="checkbox" style="width:18px; height:18px; accent-color:{{ accent }};"><span>Rolled oats · 42 oz</span><span style="font-variant-numeric:tabular-nums; font-weight:700;">$4.29</span></label>
+            <label style="display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:9px 0; border-bottom:1px solid #F3EDE4; cursor:pointer; font-size:13.5px;"><input type="checkbox" style="width:18px; height:18px; accent-color:{{ accent }};"><span>White rice · 2 lb</span><span style="font-variant-numeric:tabular-nums; font-weight:700;">$2.49</span></label>
+            <label style="display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:9px 0; cursor:pointer; font-size:13.5px;"><input type="checkbox" style="width:18px; height:18px; accent-color:{{ accent }};"><span>Greek yogurt · 32 oz</span><span style="font-variant-numeric:tabular-nums; font-weight:700;">$5.79</span></label>
+            <button style="cursor:pointer; width:100%; margin-top:14px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:14.5px; background:{{ accent }}; color:#fff; border:0; border-radius:{{ rPill }}; padding:13px;">Save this week</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+
+
+
+
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;palette&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Terracotta&quot;,&quot;Fresh teal&quot;,&quot;Berry&quot;],&quot;default&quot;:&quot;Fresh teal&quot;,&quot;section&quot;:&quot;Direction A feel&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;canvas&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Warm cream&quot;,&quot;Porcelain&quot;,&quot;Blush&quot;],&quot;default&quot;:&quot;Porcelain&quot;,&quot;section&quot;:&quot;Direction A feel&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;shape&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Soft &amp; pill&quot;,&quot;Crisp &amp; square&quot;],&quot;default&quot;:&quot;Soft &amp; pill&quot;,&quot;section&quot;:&quot;Direction A feel&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const palettes = {
+      'Terracotta': { accent:'#D97B4F', accentDark:'#B85A33', accentTint:'#F7E8DF', accentTintBrd:'#EFD0BE', accentGlow:'rgba(217,123,79,.55)', band:'#2F4B44' },
+      'Fresh teal': { accent:'#2F8E7B', accentDark:'#22615A', accentTint:'#E0F0EC', accentTintBrd:'#BFDCD4', accentGlow:'rgba(47,142,123,.45)', band:'#22403A' },
+      'Berry':      { accent:'#B04A6B', accentDark:'#8E3A56', accentTint:'#F6E3EA', accentTintBrd:'#EBC9D5', accentGlow:'rgba(176,74,107,.45)', band:'#3E2A38' }
+    };
+    const canvases = {
+      'Warm cream': { bg:'#FBF7F0', cardBrd:'#EEE4D8' },
+      'Porcelain':  { bg:'#F7F8F5', cardBrd:'#E4E8E0' },
+      'Blush':      { bg:'#FAF2EE', cardBrd:'#F0DFD6' }
+    };
+    const shapes = {
+      'Soft & pill':    { rCard:'24px', rMid:'16px', rSm:'14px', rPill:'999px' },
+      'Crisp & square': { rCard:'12px', rMid:'8px',  rSm:'7px',  rPill:'10px' }
+    };
+    return {
+      ...(palettes[this.props.palette] || palettes['Terracotta']),
+      ...(canvases[this.props.canvas] || canvases['Warm cream']),
+      ...(shapes[this.props.shape] || shapes['Soft & pill'])
+    };
+  }
+}
+</script>
+</body>
+</html>

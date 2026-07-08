@@ -379,6 +379,7 @@ def plan_page(request: Request):
 
 def _render_plan(request: Request, job: jobs.Job, save_error: str | None = None,
                  save_email: str = "", open_save: str | None = None):
+    user = auth.current_user(request)
     over_budget = job.over_budget and not job.keep_anyway
     recovery = None
     if over_budget:
@@ -397,7 +398,8 @@ def _render_plan(request: Request, job: jobs.Job, save_error: str | None = None,
         "owned_names": _owned_names(job.inputs),
         "plan_key": job.id,
         "icons": SLOT_ICONS, "tints": SLOT_TINTS,
-        "logged_in": "user_id" in request.session,
+        "logged_in": user is not None,
+        "initial": (user["email"][:1].upper() if user else ""),
         "save_error": save_error, "save_email": save_email, "open_save": open_save,
     })
 

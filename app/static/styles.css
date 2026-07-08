@@ -429,14 +429,29 @@ details.fold > .fold-body { padding-top: 10px; }
   .summary-band { border-radius: var(--r-mid); margin: 16px 0 0; }
 }
 
-/* Desktop plan layout (A16); the plan page adopts .plan-grid/.plan-rail. */
+/* Desktop plan layout (A16): the shopping list's dialog node doubles as the sticky
+   right-rail card. Below 1024px the rail wrapper is display:contents, so the dialog
+   behaves as a bottom sheet; at ≥1024px it renders statically inside the rail. */
+.plan-rail { display: contents; }
+.rail-only { display: none; }
+
 @media (min-width: 1024px) {
   .nav-saved { display: inline; }
   body.wide main, body.wide .site-head { max-width: 960px; }
   .plan-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
-  .plan-grid .meal-stack { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .plan-grid .meal-stack > .btn-ghost, .plan-grid .meal-stack > .swap-unit { grid-column: 1 / -1; }
-  .plan-rail { position: sticky; top: 24px; align-self: start; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-mid); padding: 18px 20px; }
+  .plan-grid .meal-stack { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+  .plan-grid .meal-stack > .btn-ghost { grid-column: 1 / -1; }
+  .plan-rail {
+    display: block; position: sticky; top: 24px; align-self: start;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-mid); padding: 18px 20px;
+  }
+  .plan-rail dialog.sheet {
+    display: block; position: static; margin: 0; padding: 0; border: 0;
+    box-shadow: none; max-width: none; max-height: none; overflow: visible;
+  }
+  .plan-rail .grab, .plan-rail .sheet-close { display: none; }
+  .rail-only { display: block; margin-top: 14px; }
   body.wide .action-bar { display: none; }
   .home-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
   .week-stack { display: grid; grid-template-columns: 1fr 1fr; }

@@ -15,7 +15,7 @@ from app.catalog import load_catalog, catalog_by_id, filter_catalog
 from app.kitchen import EQUIPMENT, EQUIPMENT_LABELS, PRESETS
 from app.targets import compute_targets
 from app.units import to_grams, owned_unit_options
-from app import storage, auth, jobs
+from app import storage, auth, jobs, repair
 
 # Load .env so GEMINI_API_KEY and DATABASE_URL are available under `uvicorn`.
 load_dotenv()
@@ -614,6 +614,11 @@ def account(request: Request):
     })
 
 
+def _pantry_keys(user_id: int) -> set[str]:
+    return {p["normalized_item_key"] for p in storage.list_pantry(user_id)
+            if p.get("normalized_item_key")}
+
+
 @app.get("/plans/{plan_id}", response_class=HTMLResponse)
 def view_plan(request: Request, plan_id: int):
     user = auth.current_user(request)
@@ -622,8 +627,39 @@ def view_plan(request: Request, plan_id: int):
     rec = storage.get_plan(plan_id, user["id"])
     if not rec:
         return RedirectResponse("/account", status_code=303)
+    issues = repair.meal_issues(rec, _pantry_keys(user["id"]), CATALOG_BY_ID)
+    stored_errors = ((rec.get("validation_notes") or {}).get("errors") or [])
+    needs_fix = bool(issues) or rec.get("validation_status") == "invalid"
+    local = user["email"].split("@")[0]
     return templates.TemplateResponse(request, "saved_plan.html", {
-        "user": user, "rec": rec, "plan": ComputedPlan.model_validate(rec["snapshot"])})
+        "user": user, "rec": rec, "plan": ComputedPlan.model_validate(rec["snapshot"]),
+        "issues": issues, "needs_fix": needs_fix,
+        "fix_count": max(len(issues) + len(stored_errors), 1) if needs_fix else 0,
+        "stored_errors": stored_errors,
+        "initial": (local[:1] or "y").upper(),
+        "icons": SLOT_ICONS, "tints": SLOT_TINTS,
+        "owned_names": _owned_names(PlanInputs.model_validate(rec["inputs"])),
+    })
+
+
+@app.post("/plans/{plan_id}/repair")
+def repair_plan(request: Request, plan_id: int):
+    """A15 'Fix it for me': re-solve the saved week keeping valid meals pinned."""
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    rec = storage.get_plan(plan_id, user["id"])
+    if not rec:
+        return RedirectResponse("/account", status_code=303)
+    computed, validation, inputs = repair.repair(rec, CATALOG, _pantry_keys(user["id"]))
+    storage.update_plan_snapshot(
+        plan_id, user["id"],
+        snapshot=computed.model_dump(mode="json"), inputs=inputs.model_dump(mode="json"),
+        validation_status=validation.severity,
+        validation_notes={"warnings": validation.warnings, "errors": validation.errors,
+                          "suggested_fixes": validation.suggested_fixes},
+        estimated_total_cost=computed.total_cost)
+    return RedirectResponse(f"/plans/{plan_id}", status_code=303)
 
 
 # Old standalone kitchen/pantry pages folded into wizard step 2 (kept prefilled for

@@ -159,6 +159,19 @@ def list_plans(user_id: int) -> list[dict]:
         return cur.fetchall()
 
 
+def update_plan_snapshot(plan_id: int, user_id: int, *, snapshot: dict, inputs: dict,
+                         validation_status: str, validation_notes: dict,
+                         estimated_total_cost) -> None:
+    """Replace a saved plan's snapshot after a repair, scoped to its owner."""
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE weekly_plans SET snapshot = %s, inputs = %s, validation_status = %s, "
+            "validation_notes = %s, estimated_total_cost = %s, generated_by = 'repair', "
+            "updated_at = now() WHERE id = %s AND user_id = %s",
+            (Jsonb(snapshot), Jsonb(inputs), validation_status, Jsonb(validation_notes),
+             estimated_total_cost, plan_id, user_id))
+
+
 def update_plan_progress(plan_id: int, user_id: int, progress: dict) -> None:
     """Replace a plan's progress JSON (meal check-offs etc.), scoped to its owner."""
     with _connect() as conn, conn.cursor() as cur:

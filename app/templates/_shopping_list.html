@@ -8,7 +8,7 @@
     <h2 style="font-size:22px;margin:0">Shopping list</h2>
     <span class="num" style="font-family:var(--font-display);font-weight:800;font-size:18px;color:var(--accent-dark)">${{ "%.2f"|format(d.total_cost) }}</span>
   </div>
-  <p class="fine" style="margin-bottom:14px">{{ d.grocery_list|length }} item{{ 's' if d.grocery_list|length != 1 }} · check them off as you shop{% if val.pantry_savings > 0 %} · <span style="color:var(--tint-sea-ink);font-weight:600">saved ${{ "%.2f"|format(val.pantry_savings) }} with stuff you own</span>{% endif %}</p>
+  <p class="fine" style="margin-bottom:14px">{{ d.grocery_list|length }} item{{ 's' if d.grocery_list|length != 1 }} · check them off as you shop{% if val and val.pantry_savings > 0 %} · <span style="color:var(--tint-sea-ink);font-weight:600">saved ${{ "%.2f"|format(val.pantry_savings) }} with stuff you own</span>{% endif %}</p>
 
   <div data-list-key="list:{{ plan_key }}:{{ v.kind }}">
     {% for g in d.grocery_list %}

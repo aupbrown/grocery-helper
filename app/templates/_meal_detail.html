@@ -39,8 +39,9 @@
   </ol>
   {% endif %}
 
+  {% set swappable = can_swap|default(true) and meal.slot != 'snack' %}
   <div style="display:flex;gap:10px">
-    {% if meal.slot != 'snack' %}
+    {% if swappable %}
     <form method="post" action="/regenerate" data-swap style="flex:1;display:flex">
       <input type="hidden" name="plan_kind" value="{{ kind }}">
       <input type="hidden" name="slot" value="{{ meal.slot }}">
@@ -50,7 +51,7 @@
     {% endif %}
     <button class="btn btn-dark" type="button" data-sheet-close style="flex:1;font-size:15px;padding:13px 8px">Done</button>
   </div>
-  {% if meal.slot != 'snack' %}
+  {% if swappable %}
   <p class="fine" style="text-align:center;margin:12px 0 0">Swapping keeps you under budget — we re-balance the list automatically.</p>
   {% endif %}
 </dialog>

@@ -449,3 +449,80 @@ def test_logged_in_one_tap_save(monkeypatch):
     assert r.status_code == 303
     assert r.headers["location"] == "/plans/55"
     assert saved["uid"] == 7
+
+
+def _saved_rec(validation_status="valid", owned=(), kitchen=None):
+    from app.models import KitchenProfile, PlanInputs
+    import datetime
+    inputs = PlanInputs(
+        weekly_budget=40, goal=Goal.maintain, bodyweight_lb=170, activity_level="light",
+        max_cook_minutes=120, target_calories=2200, target_protein=145,
+        target_carbs=250, target_fat=70, kitchen=kitchen or KitchenProfile(),
+        owned_ingredient_ids=list(owned))
+    base = GeneratedPlan(meals=[
+        Meal(name="Overnight oats", slot="breakfast", cook_time_minutes=0, servings=7,
+             instructions="1. Soak the oats.", ingredients=[
+                 MealIngredient(ingredient_id="oats", grams=700)]),
+        Meal(name="Seared chicken", slot="dinner", cook_time_minutes=25, servings=7,
+             instructions="1. Sear the chicken.", equipment_required=["stove"],
+             ingredients=[MealIngredient(ingredient_id="chicken_breast", grams=1400),
+                          MealIngredient(ingredient_id="rice_white", grams=1400)])])
+    from app.catalog import catalog_by_id as _cbi
+    computed, validation = jobs.finalize(base, inputs, _cbi(main.CATALOG), 40)
+    return {
+        "id": 42, "created_at": datetime.datetime(2026, 6, 24), "goal": "maintain",
+        "weekly_budget": 40, "estimated_total_cost": computed.total_cost,
+        "validation_status": validation_status, "validation_notes": {"errors": [], "warnings": []},
+        "inputs": inputs.model_dump(mode="json"),
+        "snapshot": computed.model_dump(mode="json"),
+    }
+
+
+def test_saved_plan_ready_view(monkeypatch):
+    c = TestClient(main.app)
+    _login(c, monkeypatch)
+    monkeypatch.setattr(main.storage, "get_plan", lambda pid, uid: _saved_rec())
+    monkeypatch.setattr(main.storage, "list_pantry", lambda uid: [])
+    r = c.get("/plans/42")
+    assert r.status_code == 200
+    assert "Week of Jun 24" in r.text
+    assert "✓ ready" in r.text
+    assert "Fix it for me" not in r.text
+    assert "Overnight oats" in r.text and "meal-card" in r.text
+
+
+def test_saved_plan_repair_callout_when_pantry_changed(monkeypatch):
+    c = TestClient(main.app)
+    _login(c, monkeypatch)
+    # The plan counted on owned oats, but the pantry is now empty.
+    monkeypatch.setattr(main.storage, "get_plan",
+                        lambda pid, uid: _saved_rec(owned=["oats"]))
+    monkeypatch.setattr(main.storage, "list_pantry", lambda uid: [])
+    r = c.get("/plans/42")
+    assert "This week needs" in r.text             # callout present (count varies with snacks)
+    assert "Fix it for me" in r.text
+    assert "is-warn" in r.text                     # problem meal highlighted
+    assert "is-dim" in r.text                      # valid meal dimmed
+    assert 'action="/plans/42/repair"' in r.text
+
+
+def test_repair_endpoint_updates_snapshot(monkeypatch):
+    c = TestClient(main.app)
+    _login(c, monkeypatch)
+    monkeypatch.setattr(main.storage, "get_plan",
+                        lambda pid, uid: _saved_rec(owned=["oats"]))
+    monkeypatch.setattr(main.storage, "list_pantry", lambda uid: [])
+    fresh = Meal(name="Yogurt granola cup", slot="breakfast", cook_time_minutes=0,
+                 servings=7, instructions="1. Layer.", ingredients=[
+                     MealIngredient(ingredient_id="greek_yogurt", grams=1400)])
+    monkeypatch.setattr(jobs, "generate_one", lambda *a, **k: fresh)
+    updated = {}
+    monkeypatch.setattr(main.storage, "update_plan_snapshot",
+                        lambda pid, uid, **kw: updated.update(pid=pid, **kw))
+    r = c.post("/plans/42/repair", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/plans/42"
+    names = {m["name"] for m in updated["snapshot"]["meals"]}
+    assert "Yogurt granola cup" in names           # broken meal replaced
+    assert "Seared chicken" in names               # valid meal kept
+    assert updated["inputs"]["owned_ingredient_ids"] == []   # ownership synced to pantry

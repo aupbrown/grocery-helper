@@ -1,92 +1,75 @@
-{% set icons = {'breakfast':'🍳','lunch':'🥗','dinner':'🍽️','snack':'🍎'} %}
-<!doctype html>
-<html>
-<head>
-  {% set page_title = "Saved week" %}
-  {% include "_head.html" %}
-</head>
-<body>
-<main>
-  <p class="nav"><a href="/account">← All saved weeks</a> · {{ rec.goal }} goal</p>
-  <h1>Your saved week</h1>
+{% extends "base.html" %}
+{% block title %}Week of {{ rec.created_at.strftime('%b %d') }} — grocery buddy{% endblock %}
+{% block body_attrs %} class="narrow"{% endblock %}
 
-  {% set budget_pct = [100, (plan.total_cost / plan.weekly_budget * 100) if plan.weekly_budget else 0]|min %}
-  {% set protein_pct = [100, (plan.daily_macros.protein / plan.targets.protein * 100) if plan.targets.protein else 0]|min %}
-  {% set cal_pct = [100, (plan.daily_macros.calories / plan.targets.calories * 100) if plan.targets.calories else 0]|min %}
-  <section class="hero{{ '' if plan.within_budget else ' hero--over' }}">
-    <p class="eyebrow">Week at a glance</p>
-    <div class="hero-budget">
-      <span class="hero-budget-spent num">${{ "%.2f"|format(plan.total_cost) }}</span>
-      <span class="hero-budget-of num">of ${{ "%.0f"|format(plan.weekly_budget) }} budget</span>
-    </div>
-    <p class="hero-verdict {{ 'ok' if plan.within_budget else 'over' }}">
-      {{ '✓ Under budget' if plan.within_budget else 'Over budget' }}{% if plan.protein_met %} · protein hit{% endif %}</p>
-    <div class="meter">
-      <div class="meter-track"><div class="meter-fill" style="--pct: {{ budget_pct }}%"></div></div>
-    </div>
-    <div class="macros">
-      <div class="macrobar">
-        <div class="macrobar-head"><span class="label">Protein</span>
-          <span class="num">{{ plan.daily_macros.protein }} / {{ plan.targets.protein }} g{% if plan.protein_met %} ✓{% endif %}</span></div>
-        <div class="bar"><div class="bar-fill {{ 'is-met' if plan.protein_met else 'is-under' }}" style="--pct: {{ protein_pct }}%"></div></div>
-      </div>
-      <div class="macrobar">
-        <div class="macrobar-head"><span class="label">Calories</span>
-          <span class="num">{{ plan.daily_macros.calories }} / {{ plan.targets.calories }} kcal{% if plan.calories_met %} ✓{% endif %}</span></div>
-        <div class="bar"><div class="bar-fill {{ 'is-met' if plan.calories_met else 'is-under' }}" style="--pct: {{ cal_pct }}%"></div></div>
-      </div>
-    </div>
-    <p class="hero-time">🥕 Carbs {{ plan.daily_macros.carbs }}g · 🥑 Fat {{ plan.daily_macros.fat }}g</p>
-  </section>
+{% block header %}
+<header class="site-head">
+  <a class="logo" href="/">grocery buddy</a>
+  <nav>
+    <a class="nav-saved" href="/account">Saved weeks</a>
+    <a href="/account" aria-label="Your account" style="text-decoration:none"><span class="avatar">{{ initial }}</span></a>
+  </nav>
+</header>
+{% endblock %}
 
+{% block content %}
+<p style="margin:14px 0 0"><a href="/account" class="fine" style="text-decoration:none">← All saved weeks</a></p>
+<h1 style="margin:10px 0 14px">Week of {{ rec.created_at.strftime('%b %d') }}</h1>
+
+{% if needs_fix %}
+<div class="callout">
+  <p class="title"><span aria-hidden="true">⚠</span> This week needs {{ fix_count }} fix{{ 'es' if fix_count != 1 }}</p>
+  <p class="body">
+    {% if issues %}Things changed since you saved it — {{ issues.values()|join('; ') }}.{% endif %}
+    {% if stored_errors %}{{ stored_errors|join(' ') }}{% endif %}
+  </p>
+  <form method="post" action="/plans/{{ rec.id }}/repair">
+    <button class="btn-warn btn btn-inline" type="submit">Fix it for me →</button>
+  </form>
+</div>
+{% else %}
+<div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap">
+  <span class="badge is-lg">✓ ready</span>
+  <span class="stat-chip num">${{ "%.2f"|format(plan.total_cost) }} of ${{ "%.0f"|format(plan.weekly_budget) }}</span>
+  <span class="stat-chip num"><span aria-hidden="true">💪</span> {{ plan.daily_macros.protein|round|int }}g protein/day</span>
+</div>
+{% endif %}
+
+<div class="meal-stack">
   {% for meal in plan.meals %}
-  <details class="meal"{% if loop.first %} open{% endif %}>
-    <summary>
-      <span class="meal-icon" aria-hidden="true">{{ icons.get(meal.slot, '🍽️') }}</span>
-      <span class="meal-head">
-        <span class="slot">{{ meal.slot }}</span>
+  {% with kind = 'saved', idx = loop.index0, issue = issues.get(meal.name), can_swap = false,
+          dim = needs_fix and not issues.get(meal.name) %}
+  <div class="swap-unit">
+    <button class="meal-card{% if issue %} is-warn{% elif dim %} is-dim{% endif %}" type="button"
+            data-sheet-open="#meal-saved-{{ idx }}"
+            aria-haspopup="dialog" aria-controls="meal-saved-{{ idx }}">
+      <span class="tile {{ tints.get(meal.slot, '') }}" aria-hidden="true">{{ icons.get(meal.slot, '🍽️') }}</span>
+      <span>
+        <span class="slot-line">{{ meal.slot }} · ×{{ meal.servings }}</span>
         <span class="name">{{ meal.name }}</span>
-        <span class="macro-line num">{{ meal.macros_per_serving.calories }} kcal · {{ meal.macros_per_serving.protein }}g protein · {{ meal.cook_time_minutes }} min</span>
+        {% if issue %}
+        <span class="warn-reason"><span aria-hidden="true">⚠</span> {{ issue }}</span>
+        {% else %}
+        <span class="stats num">{{ meal.macros_per_serving.calories|round|int }} kcal
+          · {{ meal.macros_per_serving.protein|round|int }}g protein
+          · {% if meal.cook_time_minutes > 0 %}{{ meal.cook_time_minutes }} min{% else %}no-cook{% endif %}</span>
+        {% endif %}
       </span>
-      <span class="meal-chevron" aria-hidden="true">›</span>
-    </summary>
-    <div class="meal-body">
-      <p class="meta">Batch of {{ meal.servings }} (one a day){% if meal.pan_loads > 1 %} · {{ meal.pan_loads }} pan-loads{% endif %} ·
-        {% if meal.equipment_required %}<span class="chip">{{ meal.equipment_required|join(', ') }}</span>{% else %}<span class="chip">no-cook</span>{% endif %}</p>
-      <ul>
-        {% for ing in meal.ingredients %}
-          <li>{{ ing.name }} — <span class="num">{{ ing.amount_per_serving }}</span>/serving <span class="note">({{ ing.amount_total }} total)</span></li>
-        {% endfor %}
-      </ul>
-      {% if meal.instructions %}
-      <h4>Recipe</h4>
-      <ol class="recipe">
-        {% for step in meal.instructions.split('\n') %}{% if step.strip() %}
-          <li>{{ step.strip().lstrip('0123456789.) ') }}</li>
-        {% endif %}{% endfor %}
-      </ol>
-      {% endif %}
-    </div>
-  </details>
+      <span class="chev" aria-hidden="true">›</span>
+    </button>
+    {% include "_meal_detail.html" %}
+  </div>
+  {% endwith %}
   {% endfor %}
+</div>
 
-  <details class="shop">
-    <summary>
-      <span>🛒 Shopping list</span>
-      <span class="shop-total num">${{ "%.2f"|format(plan.total_cost) }} · {{ plan.grocery_list|length }} item{{ 's' if plan.grocery_list|length != 1 else '' }}</span>
-    </summary>
-    <div class="shop-body">
-      <table>
-        <thead><tr><th>Item</th><th>Buy</th><th class="price">Cost</th></tr></thead>
-        <tbody>
-          {% for g in plan.grocery_list %}
-            <tr><td>{{ g.name }}</td><td>{{ g.packages }} × {{ g.package_label }}</td>
-                <td class="price">${{ "%.2f"|format(g.cost) }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </details>
-</main>
-</body>
-</html>
+{% with v = {"kind": "saved", "data": plan, "val": none}, plan_key = "saved-" ~ rec.id %}
+{% include "_shopping_list.html" %}
+{% endwith %}
+
+<div class="action-bar">
+  <button class="btn primary" type="button" data-sheet-open="#list-saved">
+    <span aria-hidden="true">🛒</span> Shopping list · <span class="num">${{ "%.2f"|format(plan.total_cost) }}</span>
+  </button>
+</div>
+{% endblock %}

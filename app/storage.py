@@ -69,6 +69,21 @@ def init_db() -> None:
             "source TEXT NOT NULL DEFAULT 'manually_added', "
             "created_at TIMESTAMPTZ NOT NULL DEFAULT now())"
         )
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS feedback ("
+            "id BIGSERIAL PRIMARY KEY, "
+            "user_id BIGINT REFERENCES users(id) ON DELETE SET NULL, "
+            "rating INTEGER, comment TEXT, "
+            "newsletter_optin BOOLEAN NOT NULL DEFAULT FALSE, "
+            "email TEXT, dismissed BOOLEAN NOT NULL DEFAULT FALSE, "
+            "created_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+        )
+        # The one-time feedback prompt flag (A9); ADD COLUMN IF NOT EXISTS keeps
+        # existing databases upgradeable without a migration tool.
+        cur.execute(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+            "feedback_done BOOLEAN NOT NULL DEFAULT FALSE"
+        )
 
 
 def log_event(event_type: str, email: str | None = None) -> None:
@@ -104,8 +119,25 @@ def create_user(email: str, password_hash: str) -> int:
 
 def get_user(user_id: int) -> dict | None:
     with _connect() as conn, conn.cursor(row_factory=dict_row) as cur:
-        cur.execute("SELECT id, email, created_at FROM users WHERE id = %s", (user_id,))
+        cur.execute("SELECT id, email, created_at, feedback_done FROM users WHERE id = %s",
+                    (user_id,))
         return cur.fetchone()
+
+
+def set_feedback_done(user_id: int) -> None:
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE users SET feedback_done = TRUE WHERE id = %s", (user_id,))
+
+
+def save_feedback(fb: dict) -> int:
+    """Persist one A9 feedback submission (or dismissal)."""
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO feedback (user_id, rating, comment, newsletter_optin, email, "
+            "dismissed) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
+            (fb.get("user_id"), fb.get("rating"), fb.get("comment"),
+             bool(fb.get("newsletter_optin")), fb.get("email"), bool(fb.get("dismissed"))))
+        return cur.fetchone()[0]
 
 
 def get_user_by_email(email: str) -> dict | None:

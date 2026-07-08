@@ -40,3 +40,21 @@ def test_log_event_and_get_stats_roundtrip():
         # Leave the dev database as we found it.
         with psycopg.connect(DATABASE_URL) as conn, conn.cursor() as cur:
             cur.execute("DELETE FROM events WHERE id > %s", (before_max_id,))
+
+
+def test_feedback_roundtrip():
+    import psycopg
+
+    from app import storage
+
+    storage.init_db()
+    fb_id = storage.save_feedback({
+        "user_id": None, "rating": 4, "comment": "integration test",
+        "newsletter_optin": False, "email": None, "dismissed": False})
+    try:
+        with psycopg.connect(DATABASE_URL) as conn, conn.cursor() as cur:
+            cur.execute("SELECT rating, comment FROM feedback WHERE id = %s", (fb_id,))
+            assert cur.fetchone() == (4, "integration test")
+    finally:
+        with psycopg.connect(DATABASE_URL) as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM feedback WHERE id = %s", (fb_id,))

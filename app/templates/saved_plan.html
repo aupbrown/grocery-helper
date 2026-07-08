@@ -72,4 +72,6 @@
     <span aria-hidden="true">🛒</span> Shopping list · <span class="num">${{ "%.2f"|format(plan.total_cost) }}</span>
   </button>
 </div>
+
+{% if show_feedback %}{% include "_feedback_dialog.html" %}{% endif %}
 {% endblock %}

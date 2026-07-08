@@ -5,7 +5,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -631,6 +631,9 @@ def view_plan(request: Request, plan_id: int):
     stored_errors = ((rec.get("validation_notes") or {}).get("errors") or [])
     needs_fix = bool(issues) or rec.get("validation_status") == "invalid"
     local = user["email"].split("@")[0]
+    # A9: prompt exactly once, on the first page after a user's first save.
+    show_feedback = bool(request.session.pop("fb_pending", False)
+                         and not user.get("feedback_done"))
     return templates.TemplateResponse(request, "saved_plan.html", {
         "user": user, "rec": rec, "plan": ComputedPlan.model_validate(rec["snapshot"]),
         "issues": issues, "needs_fix": needs_fix,
@@ -639,7 +642,33 @@ def view_plan(request: Request, plan_id: int):
         "initial": (local[:1] or "y").upper(),
         "icons": SLOT_ICONS, "tints": SLOT_TINTS,
         "owned_names": _owned_names(PlanInputs.model_validate(rec["inputs"])),
+        "show_feedback": show_feedback,
     })
+
+
+@app.post("/feedback")
+async def feedback(request: Request):
+    """A9 dialog submit or dismiss: {rating?, comment?, newsletter_optin?, dismissed?}."""
+    form = await request.form()
+    user = auth.current_user(request)
+    email = (form.get("email") or (user or {}).get("email") or "").strip() or None
+    optin = form.get("newsletter_optin") in ("on", "true", "1")
+    try:
+        storage.save_feedback({
+            "user_id": user["id"] if user else None,
+            "rating": int(_num(form.get("rating")) or 0) or None,
+            "comment": (form.get("comment") or "").strip() or None,
+            "newsletter_optin": optin,
+            "email": email,
+            "dismissed": bool(form.get("dismissed")),
+        })
+        if optin and email:
+            storage.log_event("email_captured", email=email)
+        if user:
+            storage.set_feedback_done(user["id"])
+    except Exception:
+        pass                              # feedback must never break the page
+    return Response(status_code=204)
 
 
 @app.post("/plans/{plan_id}/repair")

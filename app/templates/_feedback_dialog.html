@@ -1,0 +1,26 @@
+{# Feedback + newsletter (A9). Rendered once, on the first page after a user's first save;
+   ui.js opens it after 800ms, and both submit and dismiss set the never-again flags. #}
+<dialog class="modal" data-feedback aria-label="Feedback and newsletter" style="position:relative">
+  <button class="sheet-close" type="button" data-sheet-close aria-label="Close">✕</button>
+  <span style="font-size:30px" aria-hidden="true">🫶</span>
+  <h2 style="font-size:21px;margin:8px 0 6px">How'd we do?</h2>
+  <p class="note" style="font-size:14px;margin-bottom:14px">You just saved your first week.
+    Two seconds of honesty helps us a ton.</p>
+  <form method="post" action="/feedback">
+    <input type="hidden" name="rating" value="">
+    <div class="rating-row" role="group" aria-label="How was your experience?">
+      <button type="button" data-rating="1" aria-pressed="false" aria-label="Rough"><span aria-hidden="true">😖</span></button>
+      <button type="button" data-rating="2" aria-pressed="false" aria-label="Meh"><span aria-hidden="true">😕</span></button>
+      <button type="button" data-rating="3" aria-pressed="false" aria-label="Good"><span aria-hidden="true">🙂</span></button>
+      <button type="button" data-rating="4" aria-pressed="false" aria-label="Loved it"><span aria-hidden="true">🤩</span></button>
+    </div>
+    <textarea name="comment" placeholder="Anything we should fix? (optional)"
+              style="margin-bottom:12px;font-size:14px"></textarea>
+    <label style="display:flex;align-items:flex-start;gap:9px;font-size:13.5px;color:var(--muted);font-weight:400;margin-bottom:14px;cursor:pointer">
+      <input type="checkbox" name="newsletter_optin" checked
+             style="width:18px;height:18px;accent-color:var(--accent);margin-top:1px">
+      <span>Email me one cheap-protein recipe a week. No spam, unsubscribe anytime.</span>
+    </label>
+    <button class="btn" type="submit" style="font-size:15.5px;min-height:44px;padding:14px">Send it</button>
+  </form>
+</dialog>

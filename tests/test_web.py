@@ -526,3 +526,55 @@ def test_repair_endpoint_updates_snapshot(monkeypatch):
     assert "Yogurt granola cup" in names           # broken meal replaced
     assert "Seared chicken" in names               # valid meal kept
     assert updated["inputs"]["owned_ingredient_ids"] == []   # ownership synced to pantry
+
+
+def test_feedback_dialog_shows_once_after_first_save(monkeypatch):
+    fake = GeneratedPlan(meals=[
+        Meal(name="Oats", slot="breakfast", cook_time_minutes=0, servings=7,
+             instructions="1. Soak.", ingredients=[
+                 MealIngredient(ingredient_id="oats", grams=700)])])
+    c = _generate_plan(monkeypatch, fake)
+    saved = {}
+    _stub_accounts(monkeypatch, saved)
+    monkeypatch.setattr(main.storage, "get_plan", lambda pid, uid: _saved_rec())
+    r = c.post("/register", data={"email": "sam@school.edu", "password": "secret123",
+                                  "plan_kind": "budget"}, follow_redirects=True)
+    # First page after the first save: dialog present with labelled ratings.
+    assert "data-feedback" in r.text
+    assert r.text.count("data-rating") == 4
+    assert 'aria-label="Loved it"' in r.text
+    assert "newsletter_optin" in r.text
+    # Second load: never again.
+    r2 = c.get("/plans/99")
+    assert "data-feedback" not in r2.text
+
+
+def test_feedback_post_saves_and_sets_flag(monkeypatch):
+    c = TestClient(main.app)
+    _login(c, monkeypatch)
+    calls = {}
+    monkeypatch.setattr(main.storage, "save_feedback",
+                        lambda fb: calls.update(fb=fb) or 1)
+    monkeypatch.setattr(main.storage, "set_feedback_done",
+                        lambda uid: calls.update(done=uid))
+    monkeypatch.setattr(main.storage, "log_event",
+                        lambda *a, **k: calls.update(event=(a, k)))
+    r = c.post("/feedback", data={"rating": "4", "comment": "great",
+                                  "newsletter_optin": "on"})
+    assert r.status_code == 204
+    assert calls["fb"]["rating"] == 4
+    assert calls["fb"]["newsletter_optin"] is True
+    assert calls["fb"]["email"] == "sam@school.edu"   # from the logged-in account
+    assert calls["done"] == 7
+    assert calls["event"][0][0] == "email_captured"   # opt-in feeds the funnel metric
+
+
+def test_feedback_dismiss_records_dismissal(monkeypatch):
+    c = TestClient(main.app)
+    calls = {}
+    monkeypatch.setattr(main.storage, "save_feedback",
+                        lambda fb: calls.update(fb=fb) or 1)
+    r = c.post("/feedback", data={"dismissed": "1"})
+    assert r.status_code == 204
+    assert calls["fb"]["dismissed"] is True
+    assert calls["fb"]["rating"] is None

@@ -22,12 +22,20 @@
 
   <h3 style="margin-bottom:8px">You'll use</h3>
   <div style="margin-bottom:16px">
-    {% for ing in meal.ingredients %}
+    {% set staples = meal.ingredients|selectattr("pantry_staple")|list %}
+    {% for ing in meal.ingredients if not ing.pantry_staple %}
     <div class="ingredient-row">
       <span>{{ ing.name }}{% if ing.name in owned_names %} <span class="badge">from your shelf</span>{% endif %}</span>
       <span class="qty">{{ ing.amount_per_serving }} / serving · {{ ing.amount_total }} total</span>
     </div>
     {% endfor %}
+    {% if staples %}
+    {# Seasoning-scale amounts are meaningless per serving — one row, like the receipt says. #}
+    <div class="ingredient-row">
+      <span>{{ staples|map(attribute="name")|join(", ") }}</span>
+      <span class="qty">pantry staples</span>
+    </div>
+    {% endif %}
   </div>
 
   {% if meal.instructions %}

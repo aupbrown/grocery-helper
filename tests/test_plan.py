@@ -534,6 +534,30 @@ def test_format_amount_units_and_plurals():
     assert format_amount(240, BANANA) == "2 bananas"
 
 
+def test_format_amount_partial_counts_read_as_plain_words():
+    potato = Ingredient(id="potato", name="Potato", category="vegetable", tags=[], allergens=[],
+                        kcal_per_100g=77, protein_per_100g=2, carbs_per_100g=17, fat_per_100g=0.1,
+                        package_price=3.97, package_size_g=2268, package_label="5 lb bag",
+                        unit_label="potato", unit_grams=170)
+    assert format_amount(102.9, BANANA) == "about 1 banana"      # 6 bananas / 7 servings
+    assert format_amount(172, BANANA) == "1 or 2 bananas"        # 1.43 — between wholes
+    assert format_amount(260, BANANA) == "about 2 bananas"       # 2.17
+    assert format_amount(73, potato) == "about half a potato"    # 0.43
+    assert format_amount(51, potato) == "about a quarter potato" # 0.30
+    assert format_amount(28, WHEY) == "about 1 scoop"            # 0.875 scoops
+
+
+def test_format_amount_tiny_counts_fall_back_to_honest_grams():
+    garlic = Ingredient(id="garlic", name="Garlic", category="seasoning", tags=["vegan"],
+                        allergens=[], kcal_per_100g=149, protein_per_100g=6.4,
+                        carbs_per_100g=33, fat_per_100g=0.5, package_price=0.68,
+                        package_size_g=60, package_label="1 bulb", pantry_staple=True,
+                        unit_label="clove", unit_grams=5)
+    # A tenth of a clove is not a count; and 0.5 g must not read as a padded "0.5 oz".
+    assert format_amount(0.5, garlic) == "1 g"
+    assert format_amount(4, CHICKEN) == "4 g"
+
+
 def test_format_amount_volume_cups_tbsp_tsp():
     assert format_amount(158, RICE) == "1 cup"             # 158 g/cup
     assert format_amount(237, RICE) == "1.5 cups"          # 1.5 cups

@@ -119,6 +119,7 @@ class MealIngredientView(BaseModel):
     macros_per_serving: Macros
     amount_total: str                  # human display, e.g. "2 bananas" or "300 g"
     amount_per_serving: str            # e.g. "1 banana" or "150 g"
+    pantry_staple: bool = False        # seasonings/oil: grouped as one "pantry staples" row
 
 
 class MealView(BaseModel):

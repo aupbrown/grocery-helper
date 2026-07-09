@@ -119,13 +119,33 @@ def _qty(value: float, step: float) -> str:
     return str(int(r)) if r == int(r) else f"{r:g}"
 
 
+def _count_words(n: float, ing: Ingredient) -> str:
+    """Plain-word count for a non-whole number of units — a cook never needs '0.9 bananas'."""
+    label = ing.unit_label
+    plural = _plural(label)
+    if n < 0.375:
+        return f"about a quarter {label}"
+    if n < 0.7:
+        return f"about half a {label}"
+    whole = int(n)
+    if n >= 1.3 and 0.3 <= n - whole <= 0.7:
+        return f"{whole} or {whole + 1} {plural}"
+    k = round(n)
+    return f"about {k} {label if k == 1 else plural}"
+
+
 def format_amount(grams: float, ing: Ingredient) -> str:
     """Human kitchen display of an amount: whole units for countables ("2 bananas",
-    "1 scoop"); cups/tbsp/tsp for volume ingredients; otherwise ounces (or pounds)."""
+    "1 scoop") with plain-word approximations for partial counts ("about half a potato");
+    cups/tbsp/tsp for volume ingredients; otherwise ounces (or pounds)."""
     if ing.unit_grams and ing.unit_grams > 0:                       # countable -> units
         n = grams / ing.unit_grams
-        n_disp = int(round(n)) if abs(n - round(n)) < 0.05 else round(n, 1)
-        return f"{n_disp} {ing.unit_label if n_disp == 1 else _plural(ing.unit_label)}"
+        if abs(n - round(n)) < 0.05 and round(n) >= 1:              # exact whole counts
+            n_disp = int(round(n))
+            return f"{n_disp} {ing.unit_label if n_disp == 1 else _plural(ing.unit_label)}"
+        if n >= 0.2:
+            return _count_words(n, ing)
+        # Under a fifth of a unit a count is meaningless — fall through to volume/weight.
     if ing.grams_per_cup and ing.grams_per_cup > 0:                 # volume -> cups/tbsp/tsp
         cups = grams / ing.grams_per_cup
         if cups >= 0.25:
@@ -137,6 +157,8 @@ def format_amount(grams: float, ing: Ingredient) -> str:
     oz = grams / GRAMS_PER_OZ                                       # weight -> oz / lb
     if oz >= 16:
         return f"{_qty(oz / 16, 0.1)} lb"
+    if oz < 0.35:                                                   # don't pad 4 g up to "0.5 oz"
+        return f"{max(1, round(grams))} g"
     return f"{_qty(max(oz, 0.5), 0.5)} oz"
 
 
@@ -674,6 +696,7 @@ def compute_plan(
                     macros_for_grams(by_id[mi.ingredient_id], mi.grams), servings),
                 amount_total=format_amount(mi.grams, by_id[mi.ingredient_id]),
                 amount_per_serving=format_amount(mi.grams / servings, by_id[mi.ingredient_id]),
+                pantry_staple=by_id[mi.ingredient_id].pantry_staple,
             ) for mi in meal.ingredients],
             cook_time_minutes=meal.cook_time_minutes,
             servings=servings,

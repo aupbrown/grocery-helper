@@ -601,3 +601,22 @@ def test_shopping_list_shows_grand_total(monkeypatch):
     band = r.text.split('class="summary-band', 2)[1].split("</section>")[0]
     assert f"${week:.2f}" in band
     assert f"${total:.2f}" not in band
+
+
+def test_meal_detail_quantities_are_human_readable(monkeypatch):
+    # 720 g of banana = 6 bananas across 7 servings — must never read "0.9 bananas" —
+    # and the salt/oil the seasoning pass adds must collapse into one staples row.
+    fake = GeneratedPlan(meals=[
+        Meal(name="Banana oats", slot="breakfast", cook_time_minutes=5, servings=7,
+             instructions="1. Season with salt and cook the oats.\n2. Slice the banana.",
+             ingredients=[MealIngredient(ingredient_id="oats", grams=700),
+                          MealIngredient(ingredient_id="banana", grams=720)])])
+    # Pin macro scaling so the 6-banana batch (0.857/serving) reaches the page unchanged.
+    monkeypatch.setattr(jobs, "adjust_to_targets", lambda gen, *a, **k: gen)
+    c = _generate_plan(monkeypatch, fake)
+    r = c.get("/plan")
+    assert r.status_code == 200
+    assert "about 1 banana" in r.text            # 6/7 per serving, in plain words
+    assert "0.9 banana" not in r.text
+    assert "0.1 clove" not in r.text and "0.1 onion" not in r.text
+    assert "pantry staples" in r.text            # seasonings grouped, not micro-dosed

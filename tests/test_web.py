@@ -185,6 +185,7 @@ def test_plan_page_renders_variants_and_sheets(monkeypatch):
     assert "Daily protein shake" in r.text                  # whey top-up still added
     assert "Swap a meal" in r.text                          # ghost swap affordance
     assert "min cooking" in r.text                          # stat chips
+    assert "Total at the register" in r.text                # grand total in the list sheet
 
 
 def test_plan_page_flags_stove_meal_for_dorm_kitchen(monkeypatch):
@@ -578,3 +579,25 @@ def test_feedback_dismiss_records_dismissal(monkeypatch):
     assert r.status_code == 204
     assert calls["fb"]["dismissed"] is True
     assert calls["fb"]["rating"] is None
+
+
+def test_shopping_list_shows_grand_total(monkeypatch):
+    import re
+    fake = GeneratedPlan(meals=[
+        Meal(name="Chicken & rice", slot="dinner", cook_time_minutes=20, servings=7,
+             instructions="1. Season the chicken with salt.\n2. Cook the rice and serve.",
+             ingredients=[MealIngredient(ingredient_id="rice_white", grams=1400),
+                          MealIngredient(ingredient_id="chicken_breast", grams=1050)])])
+    c = _generate_plan(monkeypatch, fake)
+    r = c.get("/plan")
+    assert r.status_code == 200
+    assert "Total at the register" in r.text
+    assert "not counted against your weekly budget" in r.text   # buy-once framing intact
+    block = r.text.split('aria-label="Cost summary"')[1].split("</dialog>")[0]
+    week, pantry, total = (float(x) for x in re.findall(r"\$(\d+\.\d\d)", block)[:3])
+    assert pantry > 0                                # the seasoning pass stocked staples
+    assert abs(week + pantry - total) < 0.011        # grand total = groceries + staples
+    # Budget math unchanged: the summary band still reports the weekly figure only.
+    band = r.text.split('class="summary-band', 2)[1].split("</section>")[0]
+    assert f"${week:.2f}" in band
+    assert f"${total:.2f}" not in band

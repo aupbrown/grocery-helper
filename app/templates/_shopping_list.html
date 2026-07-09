@@ -49,10 +49,34 @@
   </details>
   {% endif %}
 
+  {% if d.pantry_list %}
+  <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:4px" aria-label="Cost summary">
+    <div class="ingredient-row">
+      <span>Week's groceries <span class="fine">(counts toward your budget)</span></span>
+      <span class="qty num">${{ "%.2f"|format(d.total_cost) }}</span>
+    </div>
+    <div class="ingredient-row">
+      <span>Pantry stock-up <span class="fine">(one-time, lasts months)</span></span>
+      <span class="qty num">${{ "%.2f"|format(d.pantry_total) }}</span>
+    </div>
+    <div class="ingredient-row" style="border-top:1px solid var(--hairline);font-weight:700">
+      <span>Total at the register</span>
+      <span class="qty num" style="color:var(--accent-dark);font-weight:800">${{ "%.2f"|format(d.total_cost + d.pantry_total) }}</span>
+    </div>
+  </div>
+  {% endif %}
+
   <textarea id="copy-src-{{ v.kind }}" hidden readonly aria-hidden="true">
 Shopping list — ${{ "%.2f"|format(d.total_cost) }}
 {% for g in d.grocery_list %}- {{ g.name }}: {{ g.packages }} × {{ g.package_label }} — ${{ "%.2f"|format(g.cost) }}
-{% endfor %}</textarea>
+{% endfor %}{% if d.pantry_list %}
+Pantry stock-up (one-time buys):
+{% for g in d.pantry_list %}- {{ g.name }}: {{ g.packages }} × {{ g.package_label }} — ${{ "%.2f"|format(g.cost) }}
+{% endfor %}
+Week's groceries: ${{ "%.2f"|format(d.total_cost) }}
+Pantry stock-up: ${{ "%.2f"|format(d.pantry_total) }}
+Total at the register: ${{ "%.2f"|format(d.total_cost + d.pantry_total) }}
+{% endif %}</textarea>
   <button class="btn btn-dark" type="button" style="margin-top:16px;font-size:16px"
           data-copy-target="#copy-src-{{ v.kind }}">Share / copy list <span aria-hidden="true">📋</span></button>
   <p class="fine" style="text-align:center;margin:12px 0 0">Costs are estimates from a fixed ingredient catalog.</p>

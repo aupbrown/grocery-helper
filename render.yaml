@@ -1,0 +1,22 @@
+# Render blueprint: one free-tier web service, deployed from main.
+# The start command is load-bearing: exactly ONE worker (app/jobs.py keeps generation
+# jobs in process memory) and proxy headers on (TLS terminates at Render's edge).
+services:
+  - type: web
+    name: grocery-helper
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: STATS_TOKEN
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

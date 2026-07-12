@@ -15,7 +15,7 @@ from app.catalog import load_catalog, catalog_by_id, filter_catalog
 from app.kitchen import EQUIPMENT, EQUIPMENT_LABELS, PRESETS
 from app.targets import compute_targets
 from app.units import to_grams, owned_unit_options
-from app import storage, auth, jobs, repair
+from app import storage, auth, jobs, ratelimit, repair
 
 # Load .env so GEMINI_API_KEY and DATABASE_URL are available under `uvicorn`.
 load_dotenv()
@@ -304,8 +304,19 @@ def _inputs_from_wizard(w: dict, form) -> PlanInputs:
     )
 
 
+def _client_ip(request: Request) -> str:
+    # uvicorn --proxy-headers rewrites request.client from X-Forwarded-For on Render.
+    return request.client.host if request.client else "unknown"
+
+
+def _rate_limited(request: Request):
+    return templates.TemplateResponse(request, "rate_limited.html", {}, status_code=429)
+
+
 @app.post("/plan/generate")
 async def plan_generate(request: Request):
+    if not ratelimit.allow(_client_ip(request)):
+        return _rate_limited(request)
     form = await request.form()
     w = _wizard(request)
     inputs = _inputs_from_wizard(w, form)
@@ -428,6 +439,8 @@ async def plan_recover(request: Request):
     if action == "keep":
         job.keep_anyway = True
         return RedirectResponse("/plan", status_code=303)
+    if not ratelimit.allow(_client_ip(request)):
+        return _rate_limited(request)
 
     inputs = job.inputs.model_copy(deep=True)
     w = _wizard(request)
@@ -457,6 +470,8 @@ async def regenerate(request: Request):
     job = jobs.get(request.session.get("job_id"))
     if job is None or job.state != "done":
         return RedirectResponse("/plan", status_code=303)
+    if not ratelimit.allow(_client_ip(request)):
+        return _rate_limited(request)
     form = await request.form()
     plan_kind = form.get("plan_kind") if form.get("plan_kind") in ("budget", "protein") \
         else "budget"

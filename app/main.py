@@ -1,5 +1,6 @@
 import json
 import os
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -730,5 +731,10 @@ def legacy_settings_pantry():
 
 
 @app.get("/stats")
-def stats():
+def stats(token: str = ""):
+    # Founder-only analytics. 404 (not 403) so the endpoint stays invisible
+    # without the token; compare_digest keeps the check constant-time.
+    expected = os.environ.get("STATS_TOKEN")
+    if not expected or not secrets.compare_digest(token.encode(), expected.encode()):
+        return Response(status_code=404)
     return storage.get_stats()

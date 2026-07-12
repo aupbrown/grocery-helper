@@ -1,4 +1,4 @@
-"""Launch-hardening tests: session secret handling.
+"""Launch-hardening tests: session secret handling and the /stats gate.
 
 The RENDER env var (set automatically on every Render service) is the production
 signal — absent locally and under pytest, so these tests drive it explicitly.
@@ -31,3 +31,35 @@ def test_session_secret_required_in_production(monkeypatch):
     monkeypatch.setenv("RENDER", "true")
     with pytest.raises(RuntimeError):
         main._session_secret()
+
+
+# --- /stats hides behind STATS_TOKEN (404, not 403, so it stays invisible) ---
+
+def _stats_client(monkeypatch):
+    import app.main as main
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(main.storage, "get_stats",
+                        lambda: {"plans_generated": 3, "emails_captured": 1})
+    return TestClient(main.app)
+
+
+def test_stats_404_when_token_env_unset(monkeypatch):
+    c = _stats_client(monkeypatch)
+    monkeypatch.delenv("STATS_TOKEN", raising=False)
+    assert c.get("/stats").status_code == 404
+    assert c.get("/stats?token=anything").status_code == 404
+
+
+def test_stats_404_with_wrong_token(monkeypatch):
+    c = _stats_client(monkeypatch)
+    monkeypatch.setenv("STATS_TOKEN", "hunter2")
+    assert c.get("/stats").status_code == 404
+    assert c.get("/stats?token=wrong").status_code == 404
+
+
+def test_stats_returns_json_with_right_token(monkeypatch):
+    c = _stats_client(monkeypatch)
+    monkeypatch.setenv("STATS_TOKEN", "hunter2")
+    r = c.get("/stats?token=hunter2")
+    assert r.status_code == 200
+    assert r.json()["plans_generated"] == 3

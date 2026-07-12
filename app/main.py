@@ -37,10 +37,23 @@ async def lifespan(app: FastAPI):
     yield
 
 
+def _session_secret() -> str:
+    """SESSION_SECRET from the environment. Render sets RENDER=true on every service,
+    so treat its presence as production: a missing secret there means forgeable
+    login cookies (sessions are the only user isolation), so refuse to start."""
+    secret = os.environ.get("SESSION_SECRET")
+    if secret:
+        return secret
+    if os.environ.get("RENDER"):
+        raise RuntimeError("SESSION_SECRET must be set in production.")
+    return "dev-insecure-change-me"
+
+
 app = FastAPI(lifespan=lifespan)
-# Signed-cookie sessions hold only the user id. Set SESSION_SECRET in production.
-app.add_middleware(SessionMiddleware,
-                   secret_key=os.environ.get("SESSION_SECRET", "dev-insecure-change-me"))
+# Signed-cookie sessions hold only the user id. Render terminates TLS, so the Secure
+# flag comes from the RENDER signal, not the (plain-http) scheme the app sees.
+app.add_middleware(SessionMiddleware, secret_key=_session_secret(),
+                   https_only=bool(os.environ.get("RENDER")))
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
